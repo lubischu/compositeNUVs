@@ -55,20 +55,19 @@ class PWCModel():
         
         # Initialize K and U
         if mk_init is None:
-            self.mk_hat = np.zeros((N,D), dtype=float)
+            self.mk_hat = np.random.normal(0.0, 1e-3, (N-1,D))
         else:
             self.mk_hat = mk_init
         if Vk_init is None:
-            self.Vk_hat = np.tile(
-                np.identity(D, dtype=float)*1e3, (N,1,1))
+            self.Vk_hat = np.tile(np.identity(D, dtype=float), (N,1,1))
         else:
             self.Vk_hat = Vk_init
         if mu_init is None:
-            self.mu_hat = np.zeros((N-1,D), dtype=float)
+            self.mu_hat = np.random.normal(0.0, 1e-3, (N-1,D))
         else:
             self.mu_hat = mu_init
         if Vu_init is None:
-            self.Vu_hat = np.tile(np.identity(D, dtype=float)*1e3, (N-1,1,1))
+            self.Vu_hat = np.tile(np.identity(D, dtype=float), (N-1,1,1))
         else:
             self.Vu_hat = Vu_init
 
@@ -92,13 +91,14 @@ class PWCModel():
         self.Vk_hat = Vk_init
             
     def estimate_output(
-            self, mxik_b: np.ndarray, VWk_b: np.ndarray, n_it_irls: int, 
-            beta_u: float, met_convTh: float=1e-6) -> tuple[float, int]:
+            self, mxik_b: np.ndarray, VWk_b: np.ndarray, n_it_irls: int=1000, 
+            beta_u: float=None, met_convTh: float=1e-4
+            ) -> tuple[np.ndarray, int]:
         """
         Estimates K and U by IRLS with maximum n_it_irls iterations (or until 
         converged). The results are saved in K and U hat. Convergence is 
         checked by the absolute change of mk_hat from the current to the 
-        previous iteration. Note that forward- / backward- message passing is
+        previous iteration. Note that forward- / backward- message passing is 
         either done by MBF or BIFM, depending on the selected mode. 
         Accordingly, the given ingoing messages in mxik_b and VWk_b are either 
         interpreted as mean and variance or as dual mean and precision.
@@ -110,17 +110,25 @@ class PWCModel():
             VWk_b (np.ndarray): Either interpreted as ingoing covariance or 
                 precision messages, depending on mode.
                     .shape=(N,D,D)
-            n_it_irls (int): Maximum number of iterations for IRLS.
+            n_it_irls (int): Maximum number of iterations for IRLS. Default 
+                value is 100.
             beta_u (float): Tuning parameter for sparsifying NUV. Higher 
-                values correspond to a more aggressive prior.
+                values correspond to a more aggressive prior. Must be gereater 
+                than zero. If None (default), it will be chosen equal to D 
+                (i.e., plain NUV).
             met_convTh (float): Threshold for convergence.
             
         Returns:
-            minChange (float): Minimum change over all performed iterations of 
-                IRLS.
+            changes (np.ndarray): Array containing relative changes per 
+                iteration of IRLS.
             i_it (int): Index of last iteration in IRLS, starting at 0. 
                 Therefore, the number of performed iterations is i_it + 1.
         """
+        
+        if beta_u is None:
+            beta_u = self.D
+        assert beta_u > 0.0, \
+            f'beta_u must be chosen greater than zero (or None)!'
         
         changes = np.empty(n_it_irls, dtype=float)
         
@@ -144,10 +152,8 @@ class PWCModel():
             # Check if IRLS has converged (i.e., if change is below threshold)
             if changes[i_it] < met_convTh:
                 break
-            
-        minChange = np.min(changes[:i_it+1])
         
-        return minChange, i_it
+        return changes, i_it
                         
     def sparseInputs_f(self, beta_u: float, inverse: bool=False) -> np.ndarray:
         """
@@ -191,8 +197,9 @@ class PWCModel():
                     .shape=(N-1,D,D)
                     
         Returns:
-            change (float): Averaged absolute difference between the new mean 
-                estimation of K and the previous one.
+            change (float): Averaged difference between the new mean 
+                estimation of K and the previous one, relative to the absolute 
+                mean of the previous estimation.
         """
     
         # Initialize forward messages
@@ -238,7 +245,8 @@ class PWCModel():
         self.Vu_hat = Vu_f - Vu_f@Wkp_t[1:]@Vu_f
         
         # Calculate change
-        change = np.mean(np.abs(mk_hat_new - self.mk_hat))
+        change = np.mean(
+            np.abs(mk_hat_new - self.mk_hat) / np.abs(self.mk_hat))
         self.mk_hat = mk_hat_new
         
         # Assert if any negative posterior variances have been estimated
@@ -267,8 +275,9 @@ class PWCModel():
                     .shape=(N-1,D,D)
                     
         Returns:
-            change (float): Averaged absolute difference between the new mean 
-                estimation of K and the previous one.
+            change (float): Averaged difference between the new mean 
+                estimation of K and the previous one, relative to the absolute 
+                mean of the previous estimation.
         """
     
         # Initialize forward messages
@@ -319,7 +328,8 @@ class PWCModel():
             Wu_t[i-1] = Wkp_b[i] - Wkp_b[i]@Vk_hat_new[i]@Wkp_b[i]
         
         # Calculate change
-        change = np.mean(np.abs(mk_hat_new - self.mk_hat))
+        change = np.mean(
+            np.abs(mk_hat_new - self.mk_hat) / np.abs(self.mk_hat))
         self.mk_hat = mk_hat_new
         self.Vk_hat = Vk_hat_new
         
