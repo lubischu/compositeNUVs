@@ -156,7 +156,7 @@ class ModelSelector():
         
         # Calculate backward precision matrix messages through multiplication
         # node. These stay the same for all iterations of IRLS.
-        Wsppp_b = self.multiplicationNode_b(y=y, x_perModel=x_perModel)
+        Ws_b = self.multiplicationNode_b(y=y, x_perModel=x_perModel)
         
         for i_it in range(n_it_irls):
             
@@ -169,7 +169,7 @@ class ModelSelector():
             # Calculate resulting 'ingoing' mean and covariance messages to 
             # the piecewise constant model
             xisp_b = xil_b + xih_b
-            Wsp_b = Wsppp_b + Wl_b + Wh_b
+            Wsp_b = Ws_b + Wl_b + Wh_b
             
             # Perform BIFM to estimate S and U
             _ = self.estimator.BIFM(
