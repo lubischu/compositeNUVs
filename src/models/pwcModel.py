@@ -5,6 +5,8 @@ Specifies a model to fit Piece-Wise Constant (PWC) data.
 import numpy as np
 from src.nuvPriors.nuvPriors_basic import logCost
 
+num_zero = 1e-100   # To account for some numerical instabilities
+
 class PWCModel():
     """
     Model for fitting piecewise-constant (PWC) levels to N observations in 
@@ -55,7 +57,7 @@ class PWCModel():
         
         # Initialize K and U
         if mk_init is None:
-            self.mk_hat = np.random.normal(0.0, 1e-3, (N-1,D))
+            self.mk_hat = np.random.normal(0.0, 1e-3, (N,D))
         else:
             self.mk_hat = mk_init
         if Vk_init is None:
@@ -335,7 +337,9 @@ class PWCModel():
         
         # Calculate posterior estimates of U (those of K have already been 
         # calculated)
-        Vu_f = np.linalg.inv(Wu_f)
+        num_zeroMat = np.tile(
+            np.identity(self.D, dtype=float)*num_zero, (self.N-1,1,1))
+        Vu_f = np.linalg.inv(Wu_f + num_zeroMat)
         self.mu_hat = -np.reshape(
             Vu_f@np.reshape(xiu_t, (self.N-1,self.D,1)), (self.N-1,self.D))
         self.Vu_hat = Vu_f - Vu_f@Wu_t@Vu_f
