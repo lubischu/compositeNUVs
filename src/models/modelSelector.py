@@ -38,7 +38,7 @@ class ModelSelector():
                 be constant for all models.
                     .shape=(M,D,D) or .shape=(N,M,D,D)
             ms_init (np.ndarray): Initial values of ms_hat. If None, ms_hat is 
-                initialized to all-one.
+                initialized to 1/M.
                     .shape=(N,M)
             Vs_init (np.ndarray): Initial values of Vs_hat. If None, Vs_hat is 
                 initialized to identity matrices, scaled by 1e3 (i.e., very 
@@ -70,7 +70,7 @@ class ModelSelector():
         self.sigmas = sigmas
         
         if ms_init is None:
-            ms_init = np.full((N,M), 1.0, dtype=float)
+            ms_init = np.full((N,M), 1.0/M, dtype=float)
         self.estimator = PWCModel(
             N=N, D=M, mode='dual', mk_init=ms_init, Vk_init=Vs_init, 
             mu_init=mu_init, Vu_init=Vu_init)
@@ -109,8 +109,8 @@ class ModelSelector():
     def estimate_selectedModel(
             self, y: np.ndarray, x_perModel: np.ndarray, n_it_irls: int=100, 
             beta_l: float=5.0, beta_h: float=5.0, beta_u: float=None, 
-            priorType_oneHot: str='repulsive_logCost', met_convTh: float=1e-6
-            ) -> tuple[float, int]:
+            priorType_oneHot: str='repulsive_logCost', diff_convTh: float=1e-3
+            ) -> tuple[np.ndarray, int]:
         """
         Estimates S and U by IRLS with maximum n_it_irls iterations (or until 
         converged). The results are saved in S and U hat. Convergence is 
@@ -133,11 +133,11 @@ class ModelSelector():
                 an all-{0,1} solution in the One-Hot constraint. Possible 
                 cases are ['sparse', 'repulsive_logCost', 'repulsive_laplace', 
                 'discrete']. 
-            met_convTh (float): Threshold for convergence.
+            diff_convTh (float): Threshold for convergence.
             
         Returns:
-            minChange (float): Minimum change over all performed iterations of 
-                IRLS.
+            diffAZOSol (np.ndarray): Array containing averaged difference from 
+                all-{0,1} solution.
             i_it (int): Index of last iteration in IRLS, starting at 0. 
                 Therefore, the number of performed iterations is i_it + 1.
         """
@@ -148,7 +148,7 @@ class ModelSelector():
             f'priorType={priorType_oneHot} is unknown! Valid prior types ' + \
             f'are {valid_priorType}'
         
-        changes = np.empty(n_it_irls, dtype=float)
+        diffAZOSol = np.empty(n_it_irls, dtype=float)
         
         # If no beta_u is given, set it to M (i.e., use plain NUV)
         if beta_u is None:
@@ -172,16 +172,19 @@ class ModelSelector():
             Wsp_b = Wsppp_b + Wl_b + Wh_b
             
             # Perform BIFM to estimate S and U
-            changes[i_it] = self.estimator.BIFM(
+            _ = self.estimator.BIFM(
                 xik_b=xisp_b, Wk_b=Wsp_b, Wu_f=Wu_f)
             
-            # Check if IRLS has converged (i.e., if change is below threshold)
-            if changes[i_it] < met_convTh:
-                break
+            # Calculate averaged difference from all-{0,1} solution
+            ms_hat,_ = self.get_sHat()
+            diffAZOSol[i_it] = np.mean(np.minimum(ms_hat, 1-ms_hat))
             
-        minChange = np.min(changes[:i_it+1])
+            # Check if IRLS has converged (i.e., if S is close enough to 
+            # all-{0,1} solution)
+            if diffAZOSol[i_it] < diff_convTh:
+                break
         
-        return minChange, i_it
+        return diffAZOSol, i_it
 
     def multiplicationNode_b(
             self, y: np.ndarray, x_perModel: np.ndarray) -> np.ndarray:
@@ -213,7 +216,7 @@ class ModelSelector():
             # .shape=(N,M,D,1)
     
         # Calculate / construct the backward precision matrices through S'''
-        if self.sigmas_type=='conventional':
+        if self.sigmas_type=='covariance':
             Wsppp_b_vec = \
                 np.transpose(z_perModel, (0,1,3,2)) @ \
                 np.linalg.inv(self.sigmas) @ \
