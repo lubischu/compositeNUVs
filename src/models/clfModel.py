@@ -78,9 +78,10 @@ class CLFModel():
                 
     def estimate_output(
             self, y: np.ndarray, n_it_outer: int=100, n_it_irls_s: int=1, 
-            beta_u_s: float=None, beta_h_s: float=None,  beta_l_s: float=10.0,
-            levelEstType: str='superPos', met_convTh: float=1e-6, 
-            disable_progressBar: bool=False):
+            beta_u_s: float=None, beta_h_s: float=5.0,  beta_l_s: float=10.0,
+            levelEstType: str='superPos', met_convTh: float=1e-3, 
+            diff_convTh: float=1e-3, disable_progressBar: bool=False
+            ) -> tuple[pd.DataFrame, np.ndarray, int, float]:
         """
         Estimates M constant levels as well as the corresponding model 
         selection.
@@ -96,8 +97,7 @@ class CLFModel():
                 model selection. If None (default value), beta_u_s will be 
                 chosen equal to M, wich corresponds to a plain NUV.
             beta_h_s (float): Tuning parameter for One-Hot constraint in 
-                model selection, must be non-negative. If None, it will be set 
-                to the same value as beta_u_s.
+                model selection, must be non-negative. Default is 5.0.
             beta_l_s (float): Tuning parameter for positivity constraint in 
                 model selection, must be non-negative.
             levelEstType (str): Specifies the method by which the levels are 
@@ -106,13 +106,16 @@ class CLFModel():
                     'superPos': Observations are weithed by S_{i,m}
                     'selective': Only observations for which this model is 
                         actually selected are considered.
-            met_convTh (float): Threshold for convergence.
+            met_convTh (float): Threshold for convergence when checking 
+                relative change of level estimates.
+            diff_convTh (float): Threshold for convergence when checking 
+                averaged difference of S from all-{0,1} solution.
             disable_progressBar (bool): If False, the progress bar is shown. 
                 If True, no progress bar is shown. Default is False.
                 
         Returns:
             performanceMetrics (pd.DataFrame): Contains performance metrics in 
-                the format: ['change_m1', 'i_it_m1', 'change_m2', 'i_it_m2'].
+                the format: ['diffAZOSol_s', 'i_it_s', 'change_ml'].
             ml_hat_evol (np.ndarray): Contains evolution of level estimates.
                     .shape=(N,M,D)
             i_it_outer (int): Index of last outer iteration, starting at 0. 
@@ -132,15 +135,11 @@ class CLFModel():
         # If no beta_u_s is given, set it to M (i.e., use plain NUV)
         if beta_u_s is None:
             beta_u_s = self.M
-        
-        # If no beta_h_s is given, set it to the same value as beta_u_s
-        if beta_h_s is None:
-            beta_h_s = beta_u_s
     
         # Pandas DataFrame to save performance metrics
         performanceMetrics = pd.DataFrame(
             index=range(n_it_outer), 
-            columns=['change_s', 'i_it_s'])
+            columns=['diffAZOSol_s', 'i_it_s', 'change_ml'])
         ml_hat_evol = np.empty((n_it_outer,self.M,self.D))
         
         # Outer loop
@@ -148,23 +147,28 @@ class CLFModel():
             
             # Improve model selection for current estimates of levels
             x_perModel = np.tile(self.ml_hat, (self.N,1,1))
-            change_s, i_it_s = self.modelSelector.estimate_selectedModel(
+            diffAZOSol, i_it_s = self.modelSelector.estimate_selectedModel(
                 y=y, x_perModel=x_perModel, n_it_irls=n_it_irls_s, 
-                beta_l=beta_l_s, beta_h=beta_h_s, beta_u=beta_u_s, 
-                met_convTh=met_convTh)
+                beta_l=beta_l_s, beta_h=beta_h_s, beta_u=beta_u_s)
             
             # Improve level estimation
+            ml_hat_old = self.ml_hat.copy()   # .shape=(M,D)
             if levelEstType == 'superPos':
                 self.levelEstimation_superPos(y=y)
             else:
                 self.levelEstimation_selective(y=y)
+                
+            # Calculate average change of estimated levels
+            change_ml = np.mean(np.abs(ml_hat_old  - self.ml_hat))
         
             # Save performance metrics
-            performanceMetrics.loc[i_it_outer] = [change_s, i_it_s]
+            diffAZOSol_min = np.min(diffAZOSol[:i_it_s+1])
+            performanceMetrics.loc[i_it_outer] = \
+                [diffAZOSol_min, i_it_s, change_ml]
             ml_hat_evol[i_it_outer] = self.ml_hat.copy()
         
             # Check convergence
-            if change_s < met_convTh:
+            if change_ml < met_convTh and diffAZOSol_min < diff_convTh:
                 f'Converged after {i_it_outer + 1} iterations.'
                 break
             
