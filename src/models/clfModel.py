@@ -77,7 +77,7 @@ class CLFModel():
             N=N, M=M, sigmas=sigmas, sh_squared=sh_squared)
                 
     def estimate_output(
-            self, y: np.ndarray, n_it_outer: int=100, n_it_irls_s: int=1, 
+            self, y: np.ndarray, n_it_outer: int=1000, n_it_irls_s: int=1, 
             beta_u_s: float=None, beta_h_s: float=5.0,  beta_l_s: float=10.0,
             levelEstType: str='superPos', met_convTh: float=1e-3, 
             diff_convTh: float=1e-3, disable_progressBar: bool=False
@@ -132,9 +132,10 @@ class CLFModel():
         # Start timer
         start_time = time.time()
         
-        # If no beta_u_s is given, set it to M (i.e., use plain NUV)
+        # If no beta_u_s is given, set it to 1.0 (good choice according to 
+        # simulations)
         if beta_u_s is None:
-            beta_u_s = self.M
+            beta_u_s = 1.0
     
         # Pandas DataFrame to save performance metrics
         performanceMetrics = pd.DataFrame(
@@ -184,7 +185,7 @@ class CLFModel():
         of S.
         
         Args:
-            y (np.ndarray): Observations.
+            y (np.ndarray): Observations. 
                     .shape=(N,D)
         """
         
