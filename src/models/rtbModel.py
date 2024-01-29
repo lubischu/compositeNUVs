@@ -47,10 +47,10 @@ class RTBModel():
         self.modelSelector = ModelSelector(N=N, M=2, sigmas=sigmas)
         
     def estimate_output(
-            self, y: np.ndarray, beta_u_x: float, n_it_outer: int=100, 
-            n_it_irls_x: int=10, n_it_irls_s: int=10, beta_u_s: float=2.0, 
-            beta_l_s: float=1.0, beta_h_s: float=1.0, met_convTh: float=1e-6,
-            disable_progressBar: bool=False
+            self, y: np.ndarray,n_it_outer: int=1000, n_it_irls_x: int=10, 
+            n_it_irls_s: int=1, beta_u_x: float=None, beta_u_s: float=2.0, 
+            beta_l_s: float=1.0, beta_h_s: float=1.0, met_convTh: float=1e-4, 
+            diff_convTh: float=1e-3, disable_progressBar: bool=False
             ) -> tuple[pd.DataFrame, int, float]:
         """
         Estimates the output by iteratively improving the estimates of the PWC 
@@ -59,27 +59,31 @@ class RTBModel():
         Args:
             y (np.ndarray): Observations.
                     .shape=(N,D)
-            beta_u_x (float): Tuning parameter for sparse input NUV for the 
-                estimation of X (i.e., outputs of PWC model), must be positive.
             n_it_outer (int): Maximum number of outer iterations, i.e., 
                 iterations between the two improvement steps.
             n_it_irls_x (int): Maximum number of iterations of IRLS for the 
                 estimation of the outputs of the PWC model.
             n_it_irls_s (int): Maximum number of iterations of IRLS for the 
                 model selection.
+            beta_u_x (float): Tuning parameter for sparse input NUV for the 
+                estimation of X (i.e., outputs of PWC model), must be positive.
             beta_u_s (float): Tuning parameter for sparse input NUV for the 
                 estimation of S, must be positive.
             beta_l_s (float): Tuning parameter for positivity constraint for 
                 the estimation of S, must be positive.
             beta_h_s (float): Tuning parameter for One-Hot constraint for the 
                 estimation of S, must be non-negative.
-            met_convTh (float): Threshold for convergence.
+            met_convTh (float): Threshold for convergence, checking change of 
+                PWC model output.
+            diff_convTh (float): Threshold for convergence, checking how far 
+                away S is from all-{0,1} solution.
             disable_progressBar (bool): If False, the progress bar is shown. 
                 If True, no progress bar is shown. Default is False.
                 
         Returns:
             performanceMetrics (pd.DataFrame): Contains performance metrics in 
-                the format: ['change_x', 'i_it_x', 'change_s', 'i_it_s'].
+                the format: ['change_x_min', 'i_it_x', 'diffAZOSol_s', 
+                'i_it_s'].
             i_it_outer (int): Index of last outer iteration, starting at 0. 
                 Therefore, the number of performed iterations is 
                 i_it_outer + 1.
@@ -92,7 +96,7 @@ class RTBModel():
         # Pandas DataFrame to save performance metrics
         performanceMetrics = pd.DataFrame(
             index=range(n_it_outer), 
-            columns=['change_x', 'i_it_x', 'change_s', 'i_it_s'])
+            columns=['change_x_min', 'i_it_x', 'diffAZOSol_s', 'i_it_s'])
         
         for i_it_outer in trange(n_it_outer, disable=disable_progressBar):
             
@@ -110,6 +114,7 @@ class RTBModel():
             change_x, i_it_x = self.pwcModel.estimate_output(
                 n_it_irls=n_it_irls_x, mxik_b=xix_b, VWk_b=Wx_b, 
                 beta_u=beta_u_x, met_convTh=met_convTh)
+            change_x_min = np.min(change_x[:i_it_x+1])
     
             # Construct estimated outputs per model
             x_m0 = np.tile(self.constLevel, (self.N,1)) 
@@ -118,17 +123,18 @@ class RTBModel():
                 (x_m0[:,np.newaxis,:], x_m1[:,np.newaxis,:]), axis=1)
             
             # Estimate model selection
-            change_s, i_it_s = self.modelSelector.estimate_selectedModel(
+            diffAZOSol_s, i_it_s = self.modelSelector.estimate_selectedModel(
                 n_it_irls=n_it_irls_s, y=y, x_perModel=x_perModel, 
                 beta_l=beta_l_s, beta_h=beta_h_s, beta_u=beta_u_s, 
-                met_convTh=met_convTh)
+                diff_convTh=diff_convTh)
+            diffAZOSol_min = np.min(diffAZOSol_s[:i_it_s+1])
         
             # Save preformance metrics
             performanceMetrics.loc[i_it_outer] = \
-                [change_x, i_it_x, change_s, i_it_s]
+                [change_x_min, i_it_x, diffAZOSol_min, i_it_s]
     
             # Check convergence
-            if change_x < met_convTh and change_s < met_convTh:
+            if change_x_min < met_convTh and diffAZOSol_min < diff_convTh:
                 break
             
         # Stop time and calculate convergence time
