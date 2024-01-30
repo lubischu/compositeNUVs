@@ -22,25 +22,31 @@ class RTBModel():
     """
     
     def __init__(
-            self, N: int, D: int, sigmas: np.ndarray, constLevel: np.ndarray, 
+            self, N: int, D: int, constLevel: np.ndarray, sigmas: np.ndarray, 
             mx_init: np.ndarray=None, Vx_init: np.ndarray=None):
         """
         Args:
             N (int): Number of observations.
             D (int): Number of dimensions.
+            constLevel (np.ndarray): Points to constant level. If 
+                len(constLevel.shape)==1, the given array is repeated for each 
+                time index.
+                    .shape=D or (1,D) or (N,D)
             sigmas (np.ndarray): Observation noise covariance matrices for 
                 both, the known constant and the PWC model. Note that a higher 
                 variace makes the model more likely to be picked. Therefore, 
                 the covarinace matrix at index 0 (corresponding to the 
                 constant model) should be larger than the second one.
                     .shape=(2,D,D)
-            constLevel (np.ndarray): Points to constant level.
-                    .shape=D
         """
         
         self.N = N
         self.D = D
-        self.constLevel = constLevel
+        
+        if len(constLevel.shape) == 1 or constLevel.shape[0] == 1:
+            self.constLevel = np.tile(constLevel, (self.N,1)) 
+        else:
+            self.constLevel = constLevel
         
         self.pwcModel = PWCModel(
             N=N, D=D, mode='dual', mk_init=mx_init, Vk_init=Vx_init)
@@ -117,7 +123,7 @@ class RTBModel():
             change_x_min = np.min(change_x[:i_it_x+1])
     
             # Construct estimated outputs per model
-            x_m0 = np.tile(self.constLevel, (self.N,1)) 
+            x_m0 = self.constLevel
             x_m1 = self.pwcModel.mk_hat
             x_perModel = np.concatenate(
                 (x_m0[:,np.newaxis,:], x_m1[:,np.newaxis,:]), axis=1)
@@ -195,7 +201,6 @@ class RTBModel():
         
         # Construct corresponding output
         output = np.where(
-            selectedModel[:,np.newaxis]==0, 
-            np.tile(self.constLevel, (self.N,1)), mk_hat)
+            selectedModel[:,np.newaxis]==0, self.constLevel, mk_hat)
         
         return output
