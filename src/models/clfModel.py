@@ -115,7 +115,7 @@ class CLFModel():
                 
         Returns:
             performanceMetrics (pd.DataFrame): Contains performance metrics in 
-                the format: ['diffAZOSol_s', 'i_it_s', 'change_ml'].
+                the format: ['diffAZOSol_s_min', 'i_it_s', 'change_ml'].
             ml_hat_evol (np.ndarray): Contains evolution of level estimates.
                     .shape=(N,M,D)
             i_it_outer (int): Index of last outer iteration, starting at 0. 
@@ -140,7 +140,7 @@ class CLFModel():
         # Pandas DataFrame to save performance metrics
         performanceMetrics = pd.DataFrame(
             index=range(n_it_outer), 
-            columns=['diffAZOSol_s', 'i_it_s', 'change_ml'])
+            columns=['diffAZOSol_s_min', 'i_it_s', 'change_ml'])
         ml_hat_evol = np.empty((n_it_outer,self.M,self.D))
         
         # Outer loop
