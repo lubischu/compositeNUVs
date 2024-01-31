@@ -172,8 +172,7 @@ class ModelSelector():
             Wsp_b = Ws_b + Wl_b + Wh_b
             
             # Perform BIFM to estimate S and U
-            _ = self.estimator.BIFM(
-                xik_b=xisp_b, Wk_b=Wsp_b, Wu_f=Wu_f)
+            _ = self.estimator.BIFM(xik_b=xisp_b, Wk_b=Wsp_b, Wu_f=Wu_f)
             
             # Calculate averaged difference from all-{0,1} solution
             ms_hat,_ = self.get_sHat()
