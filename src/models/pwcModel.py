@@ -20,7 +20,8 @@ class PWCModel():
     
     def __init__(
             self, N: int, D: int, mode: str, mk_init: np.ndarray=None, 
-            Vk_init: np.ndarray=None, mu_init: np.ndarray=None, 
+            Vk_init: np.ndarray=None, mk_prior: np.ndarray=None, 
+            Vk_prior: np.ndarray=None, mu_init: np.ndarray=None, 
             Vu_init: np.ndarray=None):
         """
         Args:
@@ -32,18 +33,22 @@ class PWCModel():
                 respective representation (i.e., mean and covariance for 
                 'conventional' or dual mean and precision for 'dual').
             mk_init (np.ndarray): Initial values of mk_hat. If None, mk_hat is 
-                initialized to zero.
+                initialized randomly, to zero.
                     .shape=(N,D)
             Vk_init (np.ndarray): Initial values of Vk_hat. If None, Vk_hat is 
-                initialized to identity matrices, scaled by 1e3 (i.e., very 
-                uncertain about initialization).
+                initialized to identity matrices.
                     .shape=(N,D,D)
-            mk_init (np.ndarray): Initial values of mu_hat. If None, mu_hat is 
+            mk_prior (np.ndarray): Prior on mean of K_1. If None, mk_prior is 
+                initialized to zero.
+                    .shape=D or (1,D)
+            Vk_prior (np.ndarray): Prior on covariance of K_1. If None, 
+                Vk_prior is initialized to identity matrix, scaled by 1e3.
+                    .shape=(D,D) or (1,D,D)
+            mu_init (np.ndarray): Initial values of mu_hat. If None, mu_hat is 
                 initialized to zero.
                     .shape=(N-1,D)
             Vu_init (np.ndarray): Initial values of Vu_hat. If None, Vu_hat is 
-                initialized to identity matrices, scaled by 1e3 (i.e., very 
-                uncertain about initialization).
+                initialized to identity matrices.
                     .shape=(N-1,D,D)
         """
         
@@ -64,6 +69,20 @@ class PWCModel():
             self.Vk_hat = np.tile(np.identity(D, dtype=float), (N,1,1))
         else:
             self.Vk_hat = Vk_init
+        if mk_prior is None:
+            self.mk_prior = np.zeros(self.D, dtype=float)
+        else:
+            if len(mk_prior.shape) == 1:
+                self.mk_prior = mk_prior
+            else:
+                self.mk_prior = mk_prior[0]
+        if Vk_prior is None:
+            self.Vk_prior = np.identity(D, dtype=float)*1e3
+        else:
+            if len(Vk_prior.shape) == 2:
+                self.Vk_prior = Vk_prior
+            else:
+                self.Vk_prior = Vk_prior[0]
         if mu_init is None:
             self.mu_hat = np.random.normal(0.0, 1e-3, (N-1,D))
         else:
@@ -207,8 +226,8 @@ class PWCModel():
         # Initialize forward messages
         mkp_f = np.empty((self.N,self.D), dtype=float)
         Vkp_f = np.empty((self.N,self.D,self.D), dtype=float)
-        mkp_f[0] = np.zeros(self.D, dtype=float)
-        Vkp_f[0] = np.identity(self.D, dtype=float)*1e3
+        mkp_f[0] = self.mk_prior.copy()
+        Vkp_f[0] = self.Vk_prior.copy()
         mkpp_f = np.empty((self.N-1,self.D), dtype=float)
         Vkpp_f = np.empty((self.N-1,self.D,self.D), dtype=float)
         G = np.empty((self.N-1,self.D,self.D), dtype=float)
@@ -314,9 +333,8 @@ class PWCModel():
         F_t = np.empty((self.N,self.D,self.D), dtype=float)
             # F_t[0] should never be used!
         
-        #Wkp_f_1 = np.zeros((self.D,self.D), dtype=float)
-        Wkp_f_1 = np.identity(self.D, dtype=float)*1e-3
-        xikp_f_1 = np.zeros(self.D, dtype=float)
+        Wkp_f_1 = np.linalg.inv(self.Vk_prior)
+        xikp_f_1 = Wkp_f_1 @ self.mk_prior
         Vk_hat_new[0] = np.linalg.inv(Wkp_f_1 + Wkp_b[0])
         mk_hat_new[0] = Vk_hat_new[0]@(xikp_f_1 + xikp_b[0])
     
