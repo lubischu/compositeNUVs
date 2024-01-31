@@ -40,10 +40,10 @@ class PWCModel():
                     .shape=(N,D,D)
             mk_prior (np.ndarray): Prior on mean of K_1. If None, mk_prior is 
                 initialized to zero.
-                    .shape=D or (1,D)
+                    .shape=D
             Vk_prior (np.ndarray): Prior on covariance of K_1. If None, 
                 Vk_prior is initialized to identity matrix, scaled by 1e3.
-                    .shape=(D,D) or (1,D,D)
+                    .shape=(D,D)
             mu_init (np.ndarray): Initial values of mu_hat. If None, mu_hat is 
                 initialized to zero.
                     .shape=(N-1,D)
@@ -72,17 +72,11 @@ class PWCModel():
         if mk_prior is None:
             self.mk_prior = np.zeros(self.D, dtype=float)
         else:
-            if len(mk_prior.shape) == 1:
-                self.mk_prior = mk_prior
-            else:
-                self.mk_prior = mk_prior[0]
+            self.mk_prior = mk_prior
         if Vk_prior is None:
             self.Vk_prior = np.identity(D, dtype=float)*1e3
         else:
-            if len(Vk_prior.shape) == 2:
-                self.Vk_prior = Vk_prior
-            else:
-                self.Vk_prior = Vk_prior[0]
+            self.Vk_prior = Vk_prior
         if mu_init is None:
             self.mu_hat = np.random.normal(0.0, 1e-3, (N-1,D))
         else:
