@@ -40,6 +40,14 @@ class RTBModel():
                     .shape=(2,D,D)
         """
         
+        # Check dimensions of inputs
+        assert \
+            constLevel.shape==D or \
+            constLevel.shape==(1,D) or \
+            constLevel.shape==(N,D), \
+            f'constLevel must be of .shape=D or .shape=(1,D) or .shape=(N,D)!'
+        assert sigmas.shape==(2,D,D), f'sigmas must be of .shape=(2,D,D)!'
+        
         self.N = N
         self.D = D
         
@@ -53,7 +61,7 @@ class RTBModel():
         self.modelSelector = ModelSelector(N=N, M=2, sigmas=sigmas)
         
     def estimate_output(
-            self, y: np.ndarray,n_it_outer: int=1000, n_it_irls_x: int=10, 
+            self, y: np.ndarray, n_it_outer: int=1000, n_it_irls_x: int=10, 
             n_it_irls_s: int=1, beta_u_x: float=None, beta_u_s: float=2.0, 
             beta_l_s: float=1.0, beta_h_s: float=1.0, met_convTh: float=1e-4, 
             diff_convTh: float=1e-3, disable_progressBar: bool=False
@@ -95,6 +103,9 @@ class RTBModel():
                 i_it_outer + 1.
             conv_time (float): Time for convergence (in seconds).
         """
+        
+        # Check dimensions of inputs
+        assert y.shape==(self.N,self.D), f'y must be of .shape=(N,D)!'
         
         # Start timer
         start_time = time.time()
