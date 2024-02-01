@@ -57,7 +57,7 @@ class RTBModel():
             self.constLevel = constLevel
         
         self.pwcModel = PWCModel(
-            N=N, D=D, mode='dual', mk_init=mx_init, Vk_init=Vx_init)
+            N=N, D=D, mode='dual', mx_init=mx_init, Vx_init=Vx_init)
         self.modelSelector = ModelSelector(N=N, M=2, sigmas=sigmas)
         
     def estimate_output(
@@ -129,13 +129,13 @@ class RTBModel():
     
             # Estimate outputs of piecewise-constant model
             change_x, i_it_x = self.pwcModel.estimate_output(
-                n_it_irls=n_it_irls_x, mxik_b=xix_b, VWk_b=Wx_b, 
+                n_it_irls=n_it_irls_x, mxix_b=xix_b, VWx_b=Wx_b, 
                 beta_u=beta_u_x, met_convTh=met_convTh)
             change_x_min = np.min(change_x[:i_it_x+1])
     
             # Construct estimated outputs per model
             x_m0 = self.constLevel
-            x_m1 = self.pwcModel.mk_hat
+            x_m1 = self.pwcModel.mx_hat
             x_perModel = np.concatenate(
                 (x_m0[:,np.newaxis,:], x_m1[:,np.newaxis,:]), axis=1)
             
@@ -188,8 +188,8 @@ class RTBModel():
                     .shape(N,D,D)
         """
         
-        mx_hat = self.pwcModel.mk_hat
-        Vx_hat = self.pwcModel.Vk_hat
+        mx_hat = self.pwcModel.mx_hat
+        Vx_hat = self.pwcModel.Vx_hat
         
         return mx_hat, Vx_hat
             
@@ -208,10 +208,10 @@ class RTBModel():
         selectedModel = np.argmax(ms_hat, axis=1)
         
         # Get outputs of PWC model
-        mk_hat, _ = self.get_xHat()
+        mx_hat, _ = self.get_xHat()
         
         # Construct corresponding output
         output = np.where(
-            selectedModel[:,np.newaxis]==0, self.constLevel, mk_hat)
+            selectedModel[:,np.newaxis]==0, self.constLevel, mx_hat)
         
         return output
