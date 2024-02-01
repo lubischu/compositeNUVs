@@ -29,14 +29,14 @@ class ModelSelector():
         Args:
             N (int): Number of observations.
             M (int): Number of models.
-            sigmas_type (str): States whether the noise is specified by 
-                covariance or precision matrices. Must be in 
-                ['covariance', 'precision']. Default is 'covariance'.
             sigmas (np.ndarray): Specifies observation noise by either the 
                 covariance or precision matrices per model (optionally per 
                 index). If only M matrices are given, the noise is assumed to 
                 be constant for all models.
                     .shape=(M,D,D) or .shape=(N,M,D,D)
+            sigmas_type (str): States whether the noise is specified by 
+                covariance or precision matrices. Must be in 
+                ['covariance', 'precision']. Default is 'covariance'.
             ms_init (np.ndarray): Initial values of ms_hat. If None, ms_hat is 
                 initialized to 1/M.
                     .shape=(N,M)
@@ -57,6 +57,21 @@ class ModelSelector():
                 be quite unstable.
         """
         
+        # Check dimensions of inputs
+        assert \
+            (len(sigmas.shape)==3 and sigmas.shape[0]==M) or \
+            (len(sigmas.shape)==4 and sigmas.shape[:2]==(N,M)), \
+            f'sigmas must be of .shape=(M,D,D) or .shape=(N,M,D,D)!'
+        assert ms_init is None or ms_init.shape==(N,M), \
+            f'ms_init must be None or of .shape=(N,M)!'
+        assert Vs_init is None or Vs_init.shape==(N,M,M), \
+            f'Vs_init must be None or of .shape=(N,M,M)!'
+        assert mu_init is None or mu_init.shape==(N-1,M), \
+            f'mu_init must be None or of .shape=(N-1,M)!'
+        assert Vu_init is None or Vu_init.shape==(N-1,M,M), \
+            f'Vu_init must be None or of .shape=(N-1,M,M)!'
+        
+        # Check is selected sigmas type is known
         assert sigmas_type in ['covariance', 'precision'], \
             f'sigmas_type = {sigmas_type} is unknwon!'
         
@@ -101,8 +116,7 @@ class ModelSelector():
         """
         
         assert self.sigmas.shape == sigmas_new.shape, \
-            f'Dimension of sigmas_new must be {self.sigmas.shape}, but ' + \
-            f'are sigmas_new.shape={sigmas_new.shape}!'
+            f'sigmas_new must be of .shape={self.sigmas.shape}!'
         
         self.sigmas = sigmas_new
         
@@ -141,7 +155,16 @@ class ModelSelector():
             i_it (int): Index of last iteration in IRLS, starting at 0. 
                 Therefore, the number of performed iterations is i_it + 1.
         """
-    
+        
+        # Check dimensions of inputs
+        assert len(y.shape)==2 and y.shape[0]==self.N, \
+            f'y must be of .shape=(N,D)!'
+        assert \
+            len(x_perModel.shape)==3 and \
+            x_perModel.shape[:2]==(self.N,self.M), \
+            f'x_perModel must be of .shape=(N,M,D)!'
+        
+        # Check is selected prior type is known
         valid_priorType = \
             ['sparse', 'repulsive_logCost', 'repulsive_laplace', 'discrete']
         assert priorType_oneHot in valid_priorType, \
@@ -204,6 +227,14 @@ class ModelSelector():
                 multiplication node. 
                     .shape=(N,M,M)
         """
+        
+        # Check dimensions of inputs
+        assert len(y.shape)==2 and y.shape[0]==self.N, \
+            f'y must be of .shape=(N,D)!'
+        assert \
+            len(x_perModel.shape)==3 and \
+            x_perModel.shape[:2]==(self.N,self.M), \
+            f'x_perModel must be of .shape=(N,M,D)!'
         
         # Get dimension of observations
         _,D = y.shape
