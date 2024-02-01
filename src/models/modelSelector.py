@@ -87,7 +87,7 @@ class ModelSelector():
         if ms_init is None:
             ms_init = np.full((N,M), 1.0/M, dtype=float)
         self.estimator = PWCModel(
-            N=N, D=M, mode='dual', mk_init=ms_init, Vk_init=Vs_init, 
+            N=N, D=M, mode='dual', mx_init=ms_init, Vx_init=Vs_init, 
             mu_init=mu_init, Vu_init=Vu_init)
 
     def get_sHat(self) -> tuple[np.ndarray, np.ndarray]:
@@ -101,8 +101,8 @@ class ModelSelector():
                     .shape(N,M,M)
         """
         
-        ms_hat = self.estimator.mk_hat
-        Vs_hat = self.estimator.Vk_hat
+        ms_hat = self.estimator.mx_hat
+        Vs_hat = self.estimator.Vx_hat
         
         return ms_hat, Vs_hat
         
@@ -195,7 +195,7 @@ class ModelSelector():
             Wsp_b = Ws_b + Wl_b + Wh_b
             
             # Perform BIFM to estimate S and U
-            _ = self.estimator.BIFM(xik_b=xisp_b, Wk_b=Wsp_b, Wu_f=Wu_f)
+            _ = self.estimator.BIFM(xix_b=xisp_b, Wx_b=Wsp_b, Wu_f=Wu_f)
             
             # Calculate averaged difference from all-{0,1} solution
             ms_hat,_ = self.get_sHat()
