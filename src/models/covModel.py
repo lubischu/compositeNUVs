@@ -50,10 +50,10 @@ class COVModel():
 
         if evolType == 'pwc':
             self.evolModel = PWCModel(
-                N=N, D=fD, mode='dual', mk_init=mj_init, Vk_init=Vj_init)
+                N=N, D=fD, mode='dual', mx_init=mj_init, Vx_init=Vj_init)
         else:
             self.evolModel = ConstModel(
-                N=N, D=D, mode='dual', mk_init=mj_init, Vk_init=Vj_init)
+                N=N, D=D, mode='dual', mx_init=mj_init, Vx_init=Vj_init)
             
     def estimate_VICF(
             self, z_hat: np.ndarray, n_it_irls: int=1000, beta_l: float=5.0, 
@@ -105,12 +105,12 @@ class COVModel():
             if self.evolModel == 'pwc':
                 Wu_f = self.evolModel.sparseInputs_f(
                     beta_u=beta_u, inverse=True)
-                self.evolModel.BIFM(xik_b=xij_b, Wk_b=Wj_b, Wu_f=Wu_f)
+                self.evolModel.BIFM(xix_b=xij_b, Wx_b=Wj_b, Wu_f=Wu_f)
             else:
-                self.evolModel.estimate_output(mxik_b=xij_b, VWk_b=Wj_b)
+                self.evolModel.estimate_output(mxix_b=xij_b, VWx_b=Wj_b)
                 
             # Calculate average relative change in J
-            mj_hat_new = self.get_jHat()
+            mj_hat_new, _ = self.get_jHat()
             changes[i_it] = np.mean(
                 np.abs(mj_hat - mj_hat_new) / np.abs(mj_hat))
             
@@ -132,10 +132,39 @@ class COVModel():
                     .shape(N,2,2)
         """
         
-        mj_hat = self.evolModel.mk_hat
-        Vj_hat = self.evolModel.Vk_hat
+        mj_hat = self.evolModel.mx_hat
+        Vj_hat = self.evolModel.Vx_hat
         
         return mj_hat, Vj_hat
+    
+    def calculate_noiseCov(self) -> np.ndarray:
+        """
+        Calculates the corresponding estimated noise covariance matrices for 
+        the current estimates of S.
+        
+        Returns:
+            noiseCov_hat (np.ndarray): Corresponding estimated noise 
+                covariaces matrices.
+                    .shape=(N,D,D)
+        """
+        
+        # Get current estimates of J
+        mj_hat, _ = self.get_jHat()
+    
+        # Construct A^{-1} from S
+        A_inv = np.zeros((self.N,self.D,self.D), dtype=float)
+        ind_start = 0
+        for d in range(self.D):
+            A_inv += np.array([
+                np.diag(ms_hat_i[ind_start:ind_start+self.D-d], k=d) 
+                for ms_hat_i in mj_hat])
+            ind_start += self.D-d
+        
+        # Calculate covariance / precision matrices as the products of AA^T
+        A = np.linalg.inv(A_inv)
+        noiseCov_hat = A @ np.transpose(A, (0,2,1))
+        
+        return noiseCov_hat
             
 
 class ConstModel():
@@ -145,9 +174,9 @@ class ConstModel():
     """
     
     def __init__(
-            self, N: int, D: int, mode: str, mk_init: np.ndarray=None, 
-            Vk_init: np.ndarray=None, mk_prior: np.ndarray=None, 
-            Vk_prior: np.ndarray=None):
+            self, N: int, D: int, mode: str, mx_init: np.ndarray=None, 
+            Vx_init: np.ndarray=None, mx_prior: np.ndarray=None, 
+            Vx_prior: np.ndarray=None):
         """
         Args:
             N (int): Number of observations.
@@ -157,18 +186,18 @@ class ConstModel():
                 messages needed for the estimation must be given in the 
                 respective representation (i.e., mean and covariance for 
                 'conventional' or dual mean and precision for 'dual').
-            mk_init (np.ndarray): Initial values of mk_hat. If None, mk_hat is 
+            mx_init (np.ndarray): Initial values of mx_hat. If None, mx_hat is 
                 initialized randomly, close to zero.
                     .shape=(N,D)
-            Vk_init (np.ndarray): Initial values of Vk_hat. If None, Vk_hat is 
+            Vx_init (np.ndarray): Initial values of Vx_hat. If None, Vx_hat is 
                 initialized to identity matrices, scaled by 1e3 (i.e., very 
                 uncertain about initialization).
                     .shape=(N,D,D)
-            mk_prior (np.ndarray): Prior on mean of K_1. If None, mk_prior is 
+            mx_prior (np.ndarray): Prior on mean of X. If None, mx_prior is 
                 initialized to zero.
                     .shape=D
-            Vk_prior (np.ndarray): Prior on covariance of K_1. If None, 
-                Vk_prior is initialized to identity matrix, scaled by 1e3.
+            Vx_prior (np.ndarray): Prior on covariance of X. If None, 
+                Vx_prior is initialized to identity matrix, scaled by 1e3.
                     .shape=(D,D)
         """
         
@@ -181,54 +210,54 @@ class ConstModel():
         self.mode = mode
         
         # Initialize K
-        if mk_init is None:
-            self.mk_hat = np.random.normal(0.0, 1e-3, (N,D))
+        if mx_init is None:
+            self.mx_hat = np.random.normal(0.0, 1e-3, (N,D))
         else:
-            self.mk_hat = mk_init
-        if Vk_init is None:
-            self.Vk_hat = np.tile(np.identity(D, dtype=float), (N,1,1))
+            self.mx_hat = mx_init
+        if Vx_init is None:
+            self.Vx_hat = np.tile(np.identity(D, dtype=float), (N,1,1))
         else:
-            self.Vk_hat = Vk_init
+            self.Vx_hat = Vx_init
             
         # Calculate dual representation of prior and save it
-        if mk_prior is None:
-            mk_prior = np.zeros(self.D, dtype=float)
-        if Vk_prior is None:
-            Vk_prior = np.identity(D, dtype=float)*1e3
+        if mx_prior is None:
+            mx_prior = np.zeros(self.D, dtype=float)
+        if Vx_prior is None:
+            Vx_prior = np.identity(D, dtype=float)*1e3
             
-        self.Wk_prior = np.linalg.inv(Vk_prior)
-        self.xik_prior = self.Wk_prior @ mk_prior
+        self.Wx_prior = np.linalg.inv(Vx_prior)
+        self.xix_prior = self.Wx_prior @ mx_prior
             
-    def estimate_output(self, mxik_b: np.ndarray, VWk_b: np.ndarray) -> None:
+    def estimate_output(self, mxix_b: np.ndarray, VWx_b: np.ndarray) -> None:
         """
-        Calculate MAP estimates of mean and covariance matrices of K.
+        Calculate MAP estimates of mean and covariance matrices of X.
         
         Args:
-            mxik_b (np.ndarray): Either interpreted as ingoing mean or dual 
+            mxix_b (np.ndarray): Either interpreted as ingoing mean or dual 
                 mean messages, depending on mode.
                     .shape=(N,D)
-            VWk_b (np.ndarray): Either interpreted as ingoing covariance or 
+            VWx_b (np.ndarray): Either interpreted as ingoing covariance or 
                 precision messages, depending on mode.
                     .shape=(N,D,D)
         """
 
         if self.mode == 'conventional':
             # Calculate dual representations of given messages
-            Wk_b = np.linalg.inv(VWk_b)
-            xik_b = np.reshape(
-                Wk_b @ np.reshape(mxik_b, (self.N,self.D,1)), (self.N,self.D))
+            Wx_b = np.linalg.inv(VWx_b)
+            xix_b = np.reshape(
+                Wx_b @ np.reshape(mxix_b, (self.N,self.D,1)), (self.N,self.D))
             
             # Sum everything up (including prior knowledge)
-            Wk_hat = self.Wk_prior + np.sum(Wk_b, axis=0)
-            xik_hat = self.xi_prior + np.sum(xik_b, axis=0)
+            Wx_hat = self.Wx_prior + np.sum(Wx_b, axis=0)
+            xix_hat = self.xix_prior + np.sum(xix_b, axis=0)
             
         else:
             # Sum given messages directly up
-            Wk_hat = self.Wk_prior + np.sum(VWk_b, axis=0)
-            xik_hat = self.xi_prior + np.sum(mxik_b, axis=0)
+            Wx_hat = self.Wx_prior + np.sum(VWx_b, axis=0)
+            xix_hat = self.xix_prior + np.sum(mxix_b, axis=0)
             
         # Calculate MAP estimate of K
-        self.Vk_hat = np.tile(np.linalg.inv(Wk_hat), (self.N,1,1))
-        self.mk_hat = np.reshape(
-            self.Vk_hat @ np.reshape(xik_hat, (self.N,self.D,1)), 
+        self.Vx_hat = np.tile(np.linalg.inv(Wx_hat), (self.N,1,1))
+        self.mx_hat = np.reshape(
+            self.Vx_hat @ np.reshape(xix_hat, (self.N,self.D,1)), 
             (self.N,self.D))
