@@ -33,7 +33,7 @@ class CLFModel():
             knownLevels (np.ndarray): A priori known levels (for example the 
                 all-zero base level). Note that the array must be exactly 
                 2-dimensional, even if only one level is given!
-                    .shape=(1toM,D) or None
+                    .shape=(1toM,D)
             knwonSigmas (np.ndarray): Assumed observation noises per level. If 
                 None or knwonSigmas.shape[0]<M, the remaining covariance 
                 matrices are initialized to identity matrices.
@@ -43,6 +43,18 @@ class CLFModel():
                 close to zero). Equal to zero should work too, but tends to
                 be quite unstable.
         """
+        
+        # Check dimensions of inputs
+        assert \
+            knownLevels is None or \
+            (len(knownLevels.shape)==2 and \
+             knownLevels.shape[0]<=M and knownLevels.shape[1]==D), \
+            f'knownLevels must be None or of .shape==(1toM,D)!'
+        assert \
+            knwonSigmas is None or \
+            (len(knwonSigmas.shape)==3 and \
+             knwonSigmas.shape[0]<=M and knwonSigmas.shape[1:]==(D,D)), \
+            f'knwonSigmas must be None or of .shape==(1toM,D,D)!'
         
         self.N = N
         self.M = M
@@ -124,9 +136,13 @@ class CLFModel():
             conv_time (float): Time for convergence (in seconds).
         """
         
+        # Check dimensions of inputs
+        assert y.shape==(self.N,self.D), f'y must be of .shape=(N,D)!'
+        
+        # Check is selected level estimation type is known
         valid_levelEstType = ['superPos', 'selective']
         assert levelEstType in valid_levelEstType, \
-            f'levelEstType={levelEstType} is unknown! Valid modes ' + \
+            f'levelEstType={levelEstType} is unknown! Valid types ' + \
             f'are {valid_levelEstType}'
         
         # Start timer
@@ -189,6 +205,9 @@ class CLFModel():
                     .shape=(N,D)
         """
         
+        # Check dimensions of inputs
+        assert y.shape==(self.N,self.D), f'y must be of .shape=(N,D)!'
+        
         # Get current (fixed) estimate of S
         ms_hat, _ = self.modelSelector.get_sHat()   # .shape=(N,M)
         
@@ -216,6 +235,9 @@ class CLFModel():
             y (np.ndarray): Observations.
                     .shape=(N,D)
         """
+        
+        # Check dimensions of inputs
+        assert y.shape==(self.N,self.D), f'y must be of .shape=(N,D)!'
         
         # Get current (fixed) estimate of S
         ms_hat, _ = self.modelSelector.get_sHat()   # .shape=(N,M)
