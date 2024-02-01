@@ -13,15 +13,15 @@ class PWCModel():
     D-dimensions. A piecewise-constant solution is emphasized by sparsifying 
     NUV priors at each input. Each model has to be initialized with N, D, mode 
     (specifying type of message passing algorithm), and optionally initial 
-    values for K and U hat. The acutal model output estimation is performed by 
+    values for X and U hat. The acutal model output estimation is performed by 
     IRLS, where the ingoing messages into the model must be given (in the 
     representation corresponding to the selected mode).
     """
     
     def __init__(
-            self, N: int, D: int, mode: str, mk_init: np.ndarray=None, 
-            Vk_init: np.ndarray=None, mk_prior: np.ndarray=None, 
-            Vk_prior: np.ndarray=None, mu_init: np.ndarray=None, 
+            self, N: int, D: int, mode: str, mx_init: np.ndarray=None, 
+            Vx_init: np.ndarray=None, mx_prior: np.ndarray=None, 
+            Vx_prior: np.ndarray=None, mu_init: np.ndarray=None, 
             Vu_init: np.ndarray=None):
         """
         Args:
@@ -32,17 +32,17 @@ class PWCModel():
                 messages needed for the estimation must be given in the 
                 respective representation (i.e., mean and covariance for 
                 'conventional' or dual mean and precision for 'dual').
-            mk_init (np.ndarray): Initial values of mk_hat. If None, mk_hat is 
+            mx_init (np.ndarray): Initial values of mx_hat. If None, mx_hat is 
                 initialized randomly, to zero.
                     .shape=(N,D)
-            Vk_init (np.ndarray): Initial values of Vk_hat. If None, Vk_hat is 
+            Vx_init (np.ndarray): Initial values of Vx_hat. If None, Vx_hat is 
                 initialized to identity matrices.
                     .shape=(N,D,D)
-            mk_prior (np.ndarray): Prior on mean of K_1. If None, mk_prior is 
+            mx_prior (np.ndarray): Prior on mean of X'_1. If None, mx_prior is 
                 initialized to zero.
                     .shape=D
-            Vk_prior (np.ndarray): Prior on covariance of K_1. If None, 
-                Vk_prior is initialized to identity matrix, scaled by 1e3.
+            Vx_prior (np.ndarray): Prior on covariance of X'_1. If None, 
+                Vx_prior is initialized to identity matrix, scaled by 1e3.
                     .shape=(D,D)
             mu_init (np.ndarray): Initial values of mu_hat. If None, mu_hat is 
                 initialized to zero.
@@ -53,14 +53,14 @@ class PWCModel():
         """
         
         # Check dimensions of inputs
-        assert mk_init is None or mk_init.shape==(N,D), \
-            f'mk_init must be None or of .shape=(N,D)!'
-        assert Vk_init is None or Vk_init.shape==(N,D,D), \
-            f'Vk_init must be None or of .shape=(N,D,D)!'
-        assert mk_prior is None or mk_prior.shape==D, \
-            f'mk_prior must be None or of .shape=D!'
-        assert Vk_prior is None or Vk_prior.shape==(D,D), \
-            f'Vk_prior must be None or of .shape=(D,D)!'
+        assert mx_init is None or mx_init.shape==(N,D), \
+            f'mx_init must be None or of .shape=(N,D)!'
+        assert Vx_init is None or Vx_init.shape==(N,D,D), \
+            f'Vx_init must be None or of .shape=(N,D,D)!'
+        assert mx_prior is None or mx_prior.shape==D, \
+            f'mx_prior must be None or of .shape=D!'
+        assert Vx_prior is None or Vx_prior.shape==(D,D), \
+            f'Vx_prior must be None or of .shape=(D,D)!'
         assert mu_init is None or mu_init.shape==(N-1,D), \
             f'mu_init must be None or of .shape=(N-1,D)!'
         assert Vu_init is None or Vu_init.shape==(N-1,D,D), \
@@ -76,23 +76,23 @@ class PWCModel():
         self.D = D
         self.mode = mode
         
-        # Initialize K and U
-        if mk_init is None:
-            self.mk_hat = np.random.normal(0.0, 1e-3, (N,D))
+        # Initialize X and U
+        if mx_init is None:
+            self.mx_hat = np.random.normal(0.0, 1e-3, (N,D))
         else:
-            self.mk_hat = mk_init
-        if Vk_init is None:
-            self.Vk_hat = np.tile(np.identity(D, dtype=float), (N,1,1))
+            self.mx_hat = mx_init
+        if Vx_init is None:
+            self.Vx_hat = np.tile(np.identity(D, dtype=float), (N,1,1))
         else:
-            self.Vk_hat = Vk_init
-        if mk_prior is None:
-            self.mk_prior = np.zeros(self.D, dtype=float)
+            self.Vx_hat = Vx_init
+        if mx_prior is None:
+            self.mx_prior = np.zeros(self.D, dtype=float)
         else:
-            self.mk_prior = mk_prior
-        if Vk_prior is None:
-            self.Vk_prior = np.identity(D, dtype=float)*1e3
+            self.mx_prior = mx_prior
+        if Vx_prior is None:
+            self.Vx_prior = np.identity(D, dtype=float)*1e3
         else:
-            self.Vk_prior = Vk_prior
+            self.Vx_prior = Vx_prior
         if mu_init is None:
             self.mu_hat = np.random.normal(0.0, 1e-3, (N-1,D))
         else:
@@ -102,45 +102,45 @@ class PWCModel():
         else:
             self.Vu_hat = Vu_init
 
-    def init_k(self, mk_init: np.ndarray, Vk_init: np.ndarray):
+    def init_x(self, mx_init: np.ndarray, Vx_init: np.ndarray):
         """
         Re-initializes K.
         
         Args:
-            mk_init (np.ndarray): Initial values of mk_hat.
+            mx_init (np.ndarray): Initial values of mx_hat.
                     .shape=(N,D)
-            Vk_init (np.ndarray): Initial values of Vk_hat.
+            Vx_init (np.ndarray): Initial values of Vx_hat.
                     .shape=(N,D,D)
         """
         
         # Check dimensions of inputs
-        assert mk_init.shape==(self.N,self.D), \
-            f'mk_init must be of .shape=(N,D)!'
-        assert Vk_init.shape==(self.N,self.D,self.D), \
-            f'Vk_init must be of .shape=(N,D,D)!'
+        assert mx_init.shape==(self.N,self.D), \
+            f'mx_init must be of .shape=(N,D)!'
+        assert Vx_init.shape==(self.N,self.D,self.D), \
+            f'Vx_init must be of .shape=(N,D,D)!'
         
-        # Update initialization of K and U
-        self.mk_hat = mk_init
-        self.Vk_hat = Vk_init
+        # Update initialization of X and U
+        self.mx_hat = mx_init
+        self.Vx_hat = Vx_init
             
     def estimate_output(
-            self, mxik_b: np.ndarray, VWk_b: np.ndarray, n_it_irls: int=1000, 
+            self, mxix_b: np.ndarray, VWx_b: np.ndarray, n_it_irls: int=1000, 
             beta_u: float=None, met_convTh: float=1e-4
             ) -> tuple[np.ndarray, int]:
         """
-        Estimates K and U by IRLS with maximum n_it_irls iterations (or until 
-        converged). The results are saved in K and U hat. Convergence is 
-        checked by the absolute change of mk_hat from the current to the 
+        Estimates X and U by IRLS with maximum n_it_irls iterations (or until 
+        converged). The results are saved in X and U hat. Convergence is 
+        checked by the absolute change of mx_hat from the current to the 
         previous iteration. Note that forward- / backward- message passing is 
         either done by MBF or BIFM, depending on the selected mode. 
-        Accordingly, the given ingoing messages in mxik_b and VWk_b are either 
+        Accordingly, the given ingoing messages in mxix_b and VWx_b are either 
         interpreted as mean and variance or as dual mean and precision.
         
         Args:
-            mxik_b (np.ndarray): Either interpreted as ingoing mean or dual 
+            mxix_b (np.ndarray): Either interpreted as ingoing mean or dual 
                 mean messages, depending on mode.
                     .shape=(N,D)
-            VWk_b (np.ndarray): Either interpreted as ingoing covariance or 
+            VWx_b (np.ndarray): Either interpreted as ingoing covariance or 
                 precision messages, depending on mode.
                     .shape=(N,D,D)
             n_it_irls (int): Maximum number of iterations for IRLS. Default 
@@ -159,10 +159,10 @@ class PWCModel():
         """
         
         # Check dimensions of inputs
-        assert mxik_b.shape==(self.N,self.D), \
-            f'mxik_b must be of .shape=(N,D)!'
-        assert VWk_b.shape==(self.N,self.D,self.D), \
-            f'VWk_b must be of .shape=(N,D,D)!'
+        assert mxix_b.shape==(self.N,self.D), \
+            f'mxix_b must be of .shape=(N,D)!'
+        assert VWx_b.shape==(self.N,self.D,self.D), \
+            f'VWx_b must be of .shape=(N,D,D)!'
         
         if beta_u is None:
             beta_u = self.D
@@ -179,12 +179,12 @@ class PWCModel():
             if self.mode == 'conventional':
                 # Calculate forward covariance matrix message out of NUV
                 Vu_f = self.sparseInputs_f(beta_u=beta_u, inverse=False)
-                changes[i_it] = self.MBF(mk_b=mxik_b, Vk_b=VWk_b, Vu_f=Vu_f)
+                changes[i_it] = self.MBF(mx_b=mxix_b, Vx_b=VWx_b, Vu_f=Vu_f)
                 
             elif self.mode == 'dual':
                 # Calculate forward precision matrix message out of NUV
                 Wu_f = self.sparseInputs_f(beta_u=beta_u, inverse=True)
-                changes[i_it] = self.BIFM(xik_b=mxik_b, Wk_b=VWk_b, Wu_f=Wu_f)
+                changes[i_it] = self.BIFM(xix_b=mxix_b, Wx_b=VWx_b, Wu_f=Wu_f)
             else:
                 assert True, f'mode = {self.mode} is not known!'
             
@@ -220,16 +220,16 @@ class PWCModel():
         return VWu_f
         
     def MBF(
-            self, mk_b: np.ndarray, Vk_b: np.ndarray, Vu_f: np.ndarray
+            self, mx_b: np.ndarray, Vx_b: np.ndarray, Vu_f: np.ndarray
             ) -> np.ndarray:
         """
-        Performs MBF to estimate K and U. Used if mode is set to 
+        Performs MBF to estimate X and U. Used if mode is set to 
         'conventional'.
         
         Args:
-            mk_b (np.ndarray): Ingoing mean messages.
+            mx_b (np.ndarray): Ingoing mean messages.
                     .shape=(N,D)
-            Vk_b (np.ndarray): Ingoing covariance matrix messages.
+            Vx_b (np.ndarray): Ingoing covariance matrix messages.
                     .shape=(N,D,D)
             Vu_f (np.ndarray): Covariance matrix messages out of sparsity 
                 nodes.
@@ -242,64 +242,64 @@ class PWCModel():
         """
         
         # Check dimensions of inputs
-        assert mk_b.shape==(self.N,self.D), \
-            f'mk_b must be of .shape=(N,D)!'
-        assert Vk_b.shape==(self.N,self.D,self.D), \
-            f'Vk_b must be of .shape=(N,D,D)!'
+        assert mx_b.shape==(self.N,self.D), \
+            f'mx_b must be of .shape=(N,D)!'
+        assert Vx_b.shape==(self.N,self.D,self.D), \
+            f'Vx_b must be of .shape=(N,D,D)!'
         assert Vu_f.shape==(self.N-1,self.D,self.D), \
             f'Vu_f must be of .shape=(N-1,D,D)!'
     
         # Initialize forward messages
-        mkp_f = np.empty((self.N,self.D), dtype=float)
-        Vkp_f = np.empty((self.N,self.D,self.D), dtype=float)
-        mkp_f[0] = self.mk_prior.copy()
-        Vkp_f[0] = self.Vk_prior.copy()
-        mkpp_f = np.empty((self.N-1,self.D), dtype=float)
-        Vkpp_f = np.empty((self.N-1,self.D,self.D), dtype=float)
+        mxp_f = np.empty((self.N,self.D), dtype=float)
+        Vxp_f = np.empty((self.N,self.D,self.D), dtype=float)
+        mxp_f[0] = self.mx_prior.copy()
+        Vxp_f[0] = self.Vx_prior.copy()
+        mxpp_f = np.empty((self.N-1,self.D), dtype=float)
+        Vxpp_f = np.empty((self.N-1,self.D,self.D), dtype=float)
         G = np.empty((self.N-1,self.D,self.D), dtype=float)
         F = np.empty((self.N-1,self.D,self.D), dtype=float)
 
         # Do forwrad message passing
         for i in range(self.N-1):
-            G[i] = np.linalg.inv(Vk_b[i] + Vkp_f[i])
-            F[i] = np.identity(self.D, dtype=float) - Vkp_f[i]@G[i]
+            G[i] = np.linalg.inv(Vx_b[i] + Vxp_f[i])
+            F[i] = np.identity(self.D, dtype=float) - Vxp_f[i]@G[i]
 
-            mkpp_f[i] = mkp_f[i] + Vkp_f[i]@G[i]@(mk_b[i] - mkp_f[i])
-            Vkpp_f[i] = Vkp_f[i] - Vkp_f[i]@G[i]@Vkp_f[i]
+            mxpp_f[i] = mxp_f[i] + Vxp_f[i]@G[i]@(mx_b[i] - mxp_f[i])
+            Vxpp_f[i] = Vxp_f[i] - Vxp_f[i]@G[i]@Vxp_f[i]
 
-            mkp_f[i+1] = mkpp_f[i]
-            Vkp_f[i+1] = Vkpp_f[i] + Vu_f[i]
+            mxp_f[i+1] = mxpp_f[i]
+            Vxp_f[i+1] = Vxpp_f[i] + Vu_f[i]
 
         # Initialize tilde (backward) messages
-        Wkp_t = np.empty((self.N,self.D,self.D), dtype=float)
-        xikp_t = np.empty((self.N,self.D), dtype=float)
-        Wkp_t[-1] = np.linalg.inv(Vkp_f[-1] + Vk_b[-1])
-        xikp_t[-1] = Wkp_t[-1]@(mkp_f[-1] - mk_b[-1])
+        Wxp_t = np.empty((self.N,self.D,self.D), dtype=float)
+        xixp_t = np.empty((self.N,self.D), dtype=float)
+        Wxp_t[-1] = np.linalg.inv(Vxp_f[-1] + Vx_b[-1])
+        xixp_t[-1] = Wxp_t[-1]@(mxp_f[-1] - mx_b[-1])
 
         # Do backward message passing
         for i in range(self.N-1,0,-1):
-            xikp_t[i-1] = F[i-1].T@xikp_t[i] - G[i-1]@(mk_b[i-1] - mkp_f[i-1])
-            Wkp_t[i-1] = F[i-1].T@Wkp_t[i]@F[i-1] + G[i-1]
+            xixp_t[i-1] = F[i-1].T@xixp_t[i] - G[i-1]@(mx_b[i-1] - mxp_f[i-1])
+            Wxp_t[i-1] = F[i-1].T@Wxp_t[i]@F[i-1] + G[i-1]
 
         # Calculate posterior estimates
-        mk_hat_new = \
-            mkp_f - \
-            np.reshape(Vkp_f@np.reshape(xikp_t, (self.N,-1,1)), (self.N,-1))
-        self.Vk_hat = Vkp_f - Vkp_f@Wkp_t@Vkp_f
+        mx_hat_new = \
+            mxp_f - \
+            np.reshape(Vxp_f@np.reshape(xixp_t, (self.N,-1,1)), (self.N,-1))
+        self.Vx_hat = Vxp_f - Vxp_f@Wxp_t@Vxp_f
 
         self.mu_hat = np.reshape(
-            -Vu_f@np.reshape(xikp_t[1:], (self.N-1,-1,1)), (self.N-1,-1))
-        self.Vu_hat = Vu_f - Vu_f@Wkp_t[1:]@Vu_f
+            -Vu_f@np.reshape(xixp_t[1:], (self.N-1,-1,1)), (self.N-1,-1))
+        self.Vu_hat = Vu_f - Vu_f@Wxp_t[1:]@Vu_f
         
         # Calculate change
         change = np.mean(
-            np.abs(mk_hat_new - self.mk_hat) / np.abs(self.mk_hat))
-        self.mk_hat = mk_hat_new
+            np.abs(mx_hat_new - self.mx_hat) / np.abs(self.mx_hat))
+        self.mx_hat = mx_hat_new
         
         # Assert if any negative posterior variances have been estimated
-        assert np.all(np.diagonal(self.Vk_hat, axis1=1, axis2=2) > -1e-10), \
-            f'Detected negative variance in K, min = ' + \
-            f'{np.min(np.diagonal(self.Vk_hat, axis1=1, axis2=2))}'
+        assert np.all(np.diagonal(self.Vx_hat, axis1=1, axis2=2) > -1e-10), \
+            f'Detected negative variance in X, min = ' + \
+            f'{np.min(np.diagonal(self.Vx_hat, axis1=1, axis2=2))}'
         assert np.all(np.diagonal(self.Vu_hat, axis1=1, axis2=2) > -1e-10), \
             f'Detected negative variance in U, min = ' + \
             f'{np.min(np.diagonal(self.Vu_hat, axis1=1, axis2=2))}'
@@ -307,15 +307,15 @@ class PWCModel():
         return change
     
     def BIFM(
-            self, xik_b: np.ndarray, Wk_b: np.ndarray, Wu_f: np.ndarray
+            self, xix_b: np.ndarray, Wx_b: np.ndarray, Wu_f: np.ndarray
             ) -> np.ndarray:
         """
         Performs BIFM to estimate K and U. Used if mode is set to 'dual'.
         
         Args:
-            xik_b (np.ndarray): Ingoing dual mean messages.
+            xix_b (np.ndarray): Ingoing dual mean messages.
                     .shape=(N,D)
-            Wk_b (np.ndarray): Ingoing precision matrix messages.
+            Wx_b (np.ndarray): Ingoing precision matrix messages.
                     .shape=(N,D,D)
             Wu_f (np.ndarray): Precision matrix messages out of sparsity 
                 nodes.
@@ -323,71 +323,71 @@ class PWCModel():
                     
         Returns:
             change (float): Averaged difference between the new mean 
-                estimation of K and the previous one, relative to the absolute 
+                estimation of X and the previous one, relative to the absolute 
                 mean of the previous estimation.
         """
         
         # Check dimensions of inputs
-        assert xik_b.shape==(self.N,self.D), \
-            f'xik_b must be of .shape=(N,D)!'
-        assert Wk_b.shape==(self.N,self.D,self.D), \
-            f'Wk_b must be of .shape=(N,D,D)!'
+        assert xix_b.shape==(self.N,self.D), \
+            f'xix_b must be of .shape=(N,D)!'
+        assert Wx_b.shape==(self.N,self.D,self.D), \
+            f'Wx_b must be of .shape=(N,D,D)!'
         assert Wu_f.shape==(self.N-1,self.D,self.D), \
             f'Wu_f must be of .shape=(N-1,D,D)!'
     
         # Initialize forward messages
-        xikp_b = np.empty((self.N,self.D), dtype=float)
-        Wkp_b = np.empty((self.N,self.D,self.D), dtype=float)
-        xikpp_b = np.empty((self.N-1,self.D), dtype=float)
-        Wkpp_b = np.empty((self.N-1,self.D,self.D), dtype=float)
+        xixp_b = np.empty((self.N,self.D), dtype=float)
+        Wxp_b = np.empty((self.N,self.D,self.D), dtype=float)
+        xixpp_b = np.empty((self.N-1,self.D), dtype=float)
+        Wxpp_b = np.empty((self.N-1,self.D,self.D), dtype=float)
         Hdd = np.empty((self.N,self.D,self.D), dtype=float)   
             # Hdd[0] should never be used!
         hdd = np.empty((self.N,self.D), dtype=float)   
             # hdd[0] should never be used!
 
-        xikp_b[-1] = xik_b[-1]
-        Wkp_b[-1] = Wk_b[-1]
+        xixp_b[-1] = xix_b[-1]
+        Wxp_b[-1] = Wx_b[-1]
     
         # Do backward message passing
         for i in range(self.N-1,0,-1):
-            Hdd[i] = np.linalg.inv(Wu_f[i-1] + Wkp_b[i])
-            hdd[i] = Hdd[i]@xikp_b[i]
+            Hdd[i] = np.linalg.inv(Wu_f[i-1] + Wxp_b[i])
+            hdd[i] = Hdd[i]@xixp_b[i]
         
-            xikpp_b[i-1] = xikp_b[i] - Wkp_b[i]@hdd[i]
-            Wkpp_b[i-1] = Wkp_b[i] - Wkp_b[i]@Hdd[i]@Wkp_b[i]
+            xixpp_b[i-1] = xixp_b[i] - Wxp_b[i]@hdd[i]
+            Wxpp_b[i-1] = Wxp_b[i] - Wxp_b[i]@Hdd[i]@Wxp_b[i]
         
-            xikp_b[i-1] = xikpp_b[i-1] + xik_b[i-1]
-            Wkp_b[i-1] = Wkpp_b[i-1] + Wk_b[i-1]
+            xixp_b[i-1] = xixpp_b[i-1] + xix_b[i-1]
+            Wxp_b[i-1] = Wxpp_b[i-1] + Wx_b[i-1]
         
         # Initialize tilde and hat messages for forward message passing
-        mk_hat_new = np.empty((self.N,self.D), dtype=float)
-        Vk_hat_new = np.empty((self.N,self.D,self.D), dtype=float)
+        mx_hat_new = np.empty((self.N,self.D), dtype=float)
+        Vx_hat_new = np.empty((self.N,self.D,self.D), dtype=float)
         xiu_t = np.empty((self.N-1,self.D), dtype=float)
         Wu_t = np.empty((self.N-1,self.D,self.D), dtype=float)
         F_t = np.empty((self.N,self.D,self.D), dtype=float)
             # F_t[0] should never be used!
         
-        Wkp_f_1 = np.linalg.inv(self.Vk_prior)
-        xikp_f_1 = Wkp_f_1 @ self.mk_prior
-        Vk_hat_new[0] = np.linalg.inv(Wkp_f_1 + Wkp_b[0])
-        mk_hat_new[0] = Vk_hat_new[0]@(xikp_f_1 + xikp_b[0])
+        Wxp_f_1 = np.linalg.inv(self.Vx_prior)
+        xixp_f_1 = Wxp_f_1 @ self.mx_prior
+        Vx_hat_new[0] = np.linalg.inv(Wxp_f_1 + Wxp_b[0])
+        mx_hat_new[0] = Vx_hat_new[0]@(xixp_f_1 + xixp_b[0])
     
         for i in range(1,self.N):
-            F_t[i] = np.identity(self.D, dtype=float) - Wkp_b[i]@Hdd[i]
+            F_t[i] = np.identity(self.D, dtype=float) - Wxp_b[i]@Hdd[i]
         
-            mk_hat_new[i] = F_t[i].T@mk_hat_new[i-1] + hdd[i]
-            Vk_hat_new[i] = F_t[i].T@Vk_hat_new[i-1]@F_t[i] + Hdd[i]
+            mx_hat_new[i] = F_t[i].T@mx_hat_new[i-1] + hdd[i]
+            Vx_hat_new[i] = F_t[i].T@Vx_hat_new[i-1]@F_t[i] + Hdd[i]
         
-            xiu_t[i-1] = Wkp_b[i]@mk_hat_new[i] - xikp_b[i]
-            Wu_t[i-1] = Wkp_b[i] - Wkp_b[i]@Vk_hat_new[i]@Wkp_b[i]
+            xiu_t[i-1] = Wxp_b[i]@mx_hat_new[i] - xixp_b[i]
+            Wu_t[i-1] = Wxp_b[i] - Wxp_b[i]@Vx_hat_new[i]@Wxp_b[i]
         
         # Calculate change
         change = np.mean(
-            np.abs(mk_hat_new - self.mk_hat) / np.abs(self.mk_hat))
-        self.mk_hat = mk_hat_new
-        self.Vk_hat = Vk_hat_new
+            np.abs(mx_hat_new - self.mx_hat) / np.abs(self.mx_hat))
+        self.mx_hat = mx_hat_new
+        self.Vx_hat = Vx_hat_new
         
-        # Calculate posterior estimates of U (those of K have already been 
+        # Calculate posterior estimates of U (those of X have already been 
         # calculated)
         num_zeroMat = np.tile(
             np.identity(self.D, dtype=float)*num_zero, (self.N-1,1,1))
