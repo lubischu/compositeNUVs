@@ -53,21 +53,23 @@ class PWCModel():
         """
         
         # Check dimensions of inputs
+        assert mk_init is None or mk_init.shape==(N,D), \
+            f'mk_init must be None or of .shape=(N,D)!'
+        assert Vk_init is None or Vk_init.shape==(N,D,D), \
+            f'Vk_init must be None or of .shape=(N,D,D)!'
+        assert mk_prior is None or mk_prior.shape==D, \
+            f'mk_prior must be None or of .shape=D!'
+        assert Vk_prior is None or Vk_prior.shape==(D,D), \
+            f'Vk_prior must be None or of .shape=(D,D)!'
+        assert mu_init is None or mu_init.shape==(N-1,D), \
+            f'mu_init must be None or of .shape=(N-1,D)!'
+        assert Vu_init is None or Vu_init.shape==(N-1,D,D), \
+            f'Vu_init must be None or of .shape=(N-1,D,D)!'
+        
+        # Check if selected mode is known
         valid_mode = ['conventional', 'dual']
         assert mode in valid_mode, \
             f'mode={mode} is unknown! Valid modes are {valid_mode}'
-        assert mk_init is None or mk_init.shape == (N,D), \
-            f'mk_init must be None or of .shape=(N,D)!'
-        assert Vk_init is None or Vk_init.shape == (N,D,D), \
-            f'Vk_init must be None or of .shape=(N,D,D)!'
-        assert mk_prior is None or mk_prior.shape == D, \
-            f'mk_prior must be None or of .shape=D!'
-        assert Vk_prior is None or Vk_prior.shape == (D,D), \
-            f'Vk_prior must be None or of .shape=(D,D)!'
-        assert mu_init is None or mu_init.shape == (N-1,D), \
-            f'mu_init must be None or of .shape=(N-1,D)!'
-        assert Vu_init is None or Vu_init.shape == (N-1,D,D), \
-            f'Vu_init must be None or of .shape=(N-1,D,D)!'
         
         # Initialize dimensions and mode
         self.N = N
@@ -157,9 +159,9 @@ class PWCModel():
         """
         
         # Check dimensions of inputs
-        assert mxik_b.shape == (self.N,self.D), \
+        assert mxik_b.shape==(self.N,self.D), \
             f'mxik_b must be of .shape=(N,D)!'
-        assert VWk_b.shape == (self.N,self.D,self.D), \
+        assert VWk_b.shape==(self.N,self.D,self.D), \
             f'VWk_b must be of .shape=(N,D,D)!'
         
         if beta_u is None:
@@ -240,11 +242,11 @@ class PWCModel():
         """
         
         # Check dimensions of inputs
-        assert mk_b.shape == (self.N,self.D), \
+        assert mk_b.shape==(self.N,self.D), \
             f'mk_b must be of .shape=(N,D)!'
-        assert Vk_b.shape == (self.N,self.D,self.D), \
+        assert Vk_b.shape==(self.N,self.D,self.D), \
             f'Vk_b must be of .shape=(N,D,D)!'
-        assert Vu_f.shape == (self.N-1,self.D,self.D), \
+        assert Vu_f.shape==(self.N-1,self.D,self.D), \
             f'Vu_f must be of .shape=(N-1,D,D)!'
     
         # Initialize forward messages
@@ -326,11 +328,11 @@ class PWCModel():
         """
         
         # Check dimensions of inputs
-        assert xik_b.shape == (self.N,self.D), \
+        assert xik_b.shape==(self.N,self.D), \
             f'xik_b must be of .shape=(N,D)!'
-        assert Wk_b.shape == (self.N,self.D,self.D), \
+        assert Wk_b.shape==(self.N,self.D,self.D), \
             f'Wk_b must be of .shape=(N,D,D)!'
-        assert Wu_f.shape == (self.N-1,self.D,self.D), \
+        assert Wu_f.shape==(self.N-1,self.D,self.D), \
             f'Wu_f must be of .shape=(N-1,D,D)!'
     
         # Initialize forward messages
