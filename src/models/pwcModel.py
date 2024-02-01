@@ -52,10 +52,24 @@ class PWCModel():
                     .shape=(N-1,D,D)
         """
         
+        # Check dimensions of inputs
         valid_mode = ['conventional', 'dual']
         assert mode in valid_mode, \
             f'mode={mode} is unknown! Valid modes are {valid_mode}'
+        assert mk_init is None or mk_init.shape == (N,D), \
+            f'mk_init must be None or of .shape=(N,D)!'
+        assert Vk_init is None or Vk_init.shape == (N,D,D), \
+            f'Vk_init must be None or of .shape=(N,D,D)!'
+        assert mk_prior is None or mk_prior.shape == D, \
+            f'mk_prior must be None or of .shape=D!'
+        assert Vk_prior is None or Vk_prior.shape == (D,D), \
+            f'Vk_prior must be None or of .shape=(D,D)!'
+        assert mu_init is None or mu_init.shape == (N-1,D), \
+            f'mu_init must be None or of .shape=(N-1,D)!'
+        assert Vu_init is None or Vu_init.shape == (N-1,D,D), \
+            f'Vu_init must be None or of .shape=(N-1,D,D)!'
         
+        # Initialize dimensions and mode
         self.N = N
         self.D = D
         self.mode = mode
@@ -97,9 +111,11 @@ class PWCModel():
                     .shape=(N,D,D)
         """
         
-        # Check whether dimensions are correct
-        assert mk_init.shape==(self.N,self.D)
-        assert Vk_init.shape==(self.N,self.D,self.D)
+        # Check dimensions of inputs
+        assert mk_init.shape==(self.N,self.D), \
+            f'mk_init must be of .shape=(N,D)!'
+        assert Vk_init.shape==(self.N,self.D,self.D), \
+            f'Vk_init must be of .shape=(N,D,D)!'
         
         # Update initialization of K and U
         self.mk_hat = mk_init
@@ -126,7 +142,7 @@ class PWCModel():
                 precision messages, depending on mode.
                     .shape=(N,D,D)
             n_it_irls (int): Maximum number of iterations for IRLS. Default 
-                value is 100.
+                value is 1000.
             beta_u (float): Tuning parameter for sparsifying NUV. Higher 
                 values correspond to a more aggressive prior. Must be gereater 
                 than zero. If None (default), it will be chosen equal to D 
@@ -139,6 +155,12 @@ class PWCModel():
             i_it (int): Index of last iteration in IRLS, starting at 0. 
                 Therefore, the number of performed iterations is i_it + 1.
         """
+        
+        # Check dimensions of inputs
+        assert mxik_b.shape == (self.N,self.D), \
+            f'mxik_b must be of .shape=(N,D)!'
+        assert VWk_b.shape == (self.N,self.D,self.D), \
+            f'VWk_b must be of .shape=(N,D,D)!'
         
         if beta_u is None:
             beta_u = self.D
@@ -216,6 +238,14 @@ class PWCModel():
                 estimation of K and the previous one, relative to the absolute 
                 mean of the previous estimation.
         """
+        
+        # Check dimensions of inputs
+        assert mk_b.shape == (self.N,self.D), \
+            f'mk_b must be of .shape=(N,D)!'
+        assert Vk_b.shape == (self.N,self.D,self.D), \
+            f'Vk_b must be of .shape=(N,D,D)!'
+        assert Vu_f.shape == (self.N-1,self.D,self.D), \
+            f'Vu_f must be of .shape=(N-1,D,D)!'
     
         # Initialize forward messages
         mkp_f = np.empty((self.N,self.D), dtype=float)
@@ -294,6 +324,14 @@ class PWCModel():
                 estimation of K and the previous one, relative to the absolute 
                 mean of the previous estimation.
         """
+        
+        # Check dimensions of inputs
+        assert xik_b.shape == (self.N,self.D), \
+            f'xik_b must be of .shape=(N,D)!'
+        assert Wk_b.shape == (self.N,self.D,self.D), \
+            f'Wk_b must be of .shape=(N,D,D)!'
+        assert Wu_f.shape == (self.N-1,self.D,self.D), \
+            f'Wu_f must be of .shape=(N-1,D,D)!'
     
         # Initialize forward messages
         xikp_b = np.empty((self.N,self.D), dtype=float)
