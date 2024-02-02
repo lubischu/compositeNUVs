@@ -14,7 +14,13 @@ from src.models.pwcModel import PWCModel
 
 class COVModel():
     """
-    TODO
+    Model to estimate the covariance matrices of applied zero-mean Gaussian 
+    noise Z_i. Thereby, the covariances can either assumed to be constant or 
+    PWC (estimator must be initialized accordingly). Furthermore, it should be 
+    noted that the following methods heavily rely on a quantity called 
+    Vectoriced Inverse Cholesky Factor (VICF), which is denoted by J. The 
+    dimension of J is fD = D*(D+1)/2, where D is the dimension of the given 
+    observations.
     """
     
     def __init__(self, N: int, D: int, evolType: str='pwc'):
@@ -27,19 +33,21 @@ class COVModel():
                 selecting either a PWC or constant model. Default is 'pwc'.
         """
         
+        # Check if selected evolution type is known
         valid_evolType = ['pwc', 'constant']
         assert evolType in valid_evolType, f'Unknown evolType! Must be in ' + \
             f'{valid_evolType}.'
         
+        # Calculate the dimension of J
+        fD = int(D*(D+1)/2)
+        
+        # Initialize dimensions
         self.N = N
         self.D = D
-        
-        # Calculate dimension of J
-        fD = int(D*(D+1)/2)
         self.fD = fD
         
-        # Construct J such that resulting noise covariance matrices would all 
-        # be identity matrices
+        # Construct J such that resulting noise covariance matrices all are 
+        # identity matrices
         mj_init = np.concatenate(
             (np.ones((N,D), dtype=float), np.zeros((N,fD-D), dtype=float)), 
             axis=1)
@@ -47,7 +55,6 @@ class COVModel():
         
         # Initialize evolution model (either PWC or constant, depending on 
         # values of 'evolType')
-
         if evolType == 'pwc':
             self.evolModel = PWCModel(
                 N=N, D=fD, mode='dual', mx_init=mj_init, Vx_init=Vj_init)
@@ -86,18 +93,23 @@ class COVModel():
                 Therefore, the number of performed iterations is i_it + 1.
         """
         
+        # Check dimensions of inputs
+        assert z_hat.shape==(self.N,self.D), f'z_hat must be of .shape=(N,D)!'
+        
         if beta_u is None:
-            beta_u = self.D
+            beta_u = self.fD
         assert beta_u > 0.0, \
             f'beta_u must be chosen greater than zero (or None)!'
         
         changes = np.empty(n_it_irls, dtype=float)
         
+        # Get current estimate of J
+        mj_hat, _ = self.get_jHat()
+        
         # Perform IRLS
         for i_it in range(n_it_irls):
             
             # Calculate backward messages through normal node
-            mj_hat, _ = self.get_jHat()
             xij_b, Wj_b = normalNode(
                 z=z_hat, ms_hat=mj_hat, beta_l=beta_l, inverse=True)
 
@@ -109,10 +121,11 @@ class COVModel():
             else:
                 self.evolModel.estimate_output(mxix_b=xij_b, VWx_b=Wj_b)
                 
-            # Calculate average relative change in J
+            # Calculate average relative change in J and update mj_hat
             mj_hat_new, _ = self.get_jHat()
             changes[i_it] = np.mean(
                 np.abs(mj_hat - mj_hat_new) / np.abs(mj_hat))
+            mj_hat = mj_hat_new
             
             # Check if IRLS has converged (i.e., if change is below threshold)
             if changes[i_it] < met_convTh:
@@ -140,7 +153,7 @@ class COVModel():
     def calculate_noiseCov(self) -> np.ndarray:
         """
         Calculates the corresponding estimated noise covariance matrices for 
-        the current estimates of S.
+        the current estimates of J.
         
         Returns:
             noiseCov_hat (np.ndarray): Corresponding estimated noise 
@@ -156,8 +169,8 @@ class COVModel():
         ind_start = 0
         for d in range(self.D):
             A_inv += np.array([
-                np.diag(ms_hat_i[ind_start:ind_start+self.D-d], k=d) 
-                for ms_hat_i in mj_hat])
+                np.diag(mj_hat_i[ind_start:ind_start+self.D-d], k=d) 
+                for mj_hat_i in mj_hat])
             ind_start += self.D-d
         
         # Calculate covariance / precision matrices as the products of AA^T
@@ -201,10 +214,22 @@ class ConstModel():
                     .shape=(D,D)
         """
         
+        # Check dimensions of inputs
+        assert mx_init is None or mx_init.shape==(N,D), \
+            f'mx_init must be None or of .shape=(N,D)!'
+        assert Vx_init is None or Vx_init.shape==(N,D,D), \
+            f'Vx_init must be None or of .shape=(N,D,D)!'
+        assert mx_prior is None or mx_prior.shape==D, \
+            f'mx_prior must be None or of .shape=D!'
+        assert Vx_prior is None or Vx_prior.shape==(D,D), \
+            f'Vx_prior must be None or of .shape=(D,D)!'
+        
+        # Check if selected mode is known
         valid_mode = ['conventional', 'dual']
         assert mode in valid_mode, \
             f'mode={mode} is unknown! Valid modes are {valid_mode}'
         
+        # Initialize dimensions and mode
         self.N = N
         self.D = D
         self.mode = mode
@@ -240,6 +265,12 @@ class ConstModel():
                 precision messages, depending on mode.
                     .shape=(N,D,D)
         """
+        
+        # Check dimensions of inputs
+        assert mxix_b.shape==(self.N,self.D), \
+            f'mxix_b must be of .shape=(N,D)!'
+        assert VWx_b.shape==(self.N,self.D,self.D), \
+            f'VWx_b must be of .shape=(N,D,D)!'
 
         if self.mode == 'conventional':
             # Calculate dual representations of given messages
