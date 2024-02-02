@@ -41,10 +41,11 @@ class COVModel():
         # Calculate the dimension of J
         fD = int(D*(D+1)/2)
         
-        # Initialize dimensions
+        # Initialize dimensions and evolution type
         self.N = N
         self.D = D
         self.fD = fD
+        self.evolType = evolType
         
         # Construct J such that resulting noise covariance matrices all are 
         # identity matrices
@@ -60,12 +61,12 @@ class COVModel():
                 N=N, D=fD, mode='dual', mx_init=mj_init, Vx_init=Vj_init)
         else:
             self.evolModel = ConstModel(
-                N=N, D=D, mode='dual', mx_init=mj_init, Vx_init=Vj_init)
+                N=N, D=fD, mode='dual', mx_init=mj_init, Vx_init=Vj_init)
             
     def estimate_VICF(
             self, z_hat: np.ndarray, n_it_irls: int=1000, beta_l: float=5.0, 
-            met_convTh: float=1e-4, beta_u: float=None
-            ) -> tuple[np.ndarray, int]:
+            met_convTh: float=1e-4, beta_u: float=None, 
+            disable_progressBar: bool=False) -> tuple[np.ndarray, int]:
         """
         Estimates the Vectorised Inverse Cholesky Factor (VICF), denoted by J. 
         In other words, J_i specifies A_i, where A_i is a Cholesky factor from 
@@ -85,16 +86,22 @@ class COVModel():
                 to a more aggressive prior. If None (default value), beta_u 
                 will be chosen equal to fD, wich corresponds to a plain NUV.
             met_convTh (float): Threshold for convergence.
+            disable_progressBar (bool): If False, the progress bar is shown. 
+                If True, no progress bar is shown. Default is False.
             
         Returns:
             changes (np.ndarray): Array containing relative changes per 
                 iteration of IRLS.
             i_it (int): Index of last iteration in IRLS, starting at 0. 
                 Therefore, the number of performed iterations is i_it + 1.
+            conv_time (float): Time for convergence (in seconds).
         """
         
         # Check dimensions of inputs
         assert z_hat.shape==(self.N,self.D), f'z_hat must be of .shape=(N,D)!'
+        
+        # Start timer
+        start_time = time.time()
         
         if beta_u is None:
             beta_u = self.fD
@@ -107,14 +114,14 @@ class COVModel():
         mj_hat, _ = self.get_jHat()
         
         # Perform IRLS
-        for i_it in range(n_it_irls):
+        for i_it in trange(n_it_irls, disable=disable_progressBar):
             
             # Calculate backward messages through normal node
             xij_b, Wj_b = normalNode(
                 z=z_hat, ms_hat=mj_hat, beta_l=beta_l, inverse=True)
 
             # Estimate J with specified evolution model
-            if self.evolModel == 'pwc':
+            if self.evolType == 'pwc':
                 Wu_f = self.evolModel.sparseInputs_f(
                     beta_u=beta_u, inverse=True)
                 self.evolModel.BIFM(xix_b=xij_b, Wx_b=Wj_b, Wu_f=Wu_f)
@@ -130,8 +137,12 @@ class COVModel():
             # Check if IRLS has converged (i.e., if change is below threshold)
             if changes[i_it] < met_convTh:
                 break
+            
+        # Stop timer and calculate time needed for convergence
+        stop_time = time.time()
+        conv_time = stop_time - start_time
 
-        return changes, i_it
+        return changes, i_it, conv_time
 
             
     def get_jHat(self) -> tuple[np.ndarray, np.ndarray]:
@@ -288,7 +299,11 @@ class ConstModel():
             xix_hat = self.xix_prior + np.sum(mxix_b, axis=0)
             
         # Calculate MAP estimate of K
-        self.Vx_hat = np.tile(np.linalg.inv(Wx_hat), (self.N,1,1))
-        self.mx_hat = np.reshape(
-            self.Vx_hat @ np.reshape(xix_hat, (self.N,self.D,1)), 
-            (self.N,self.D))
+        Vx_hat_one = np.linalg.inv(Wx_hat)
+        mx_hat_one = np.reshape(
+            Vx_hat_one @ np.reshape(xix_hat, (self.D,1)), self.D)
+        
+        # Repeat estimate to every time index (done to match format of other 
+        # estimators)
+        self.Vx_hat = np.tile(Vx_hat_one, (self.N,1,1))
+        self.mx_hat = np.tile(mx_hat_one, (self.N,1))

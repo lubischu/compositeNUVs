@@ -4,6 +4,8 @@ models.
 """
 
 import numpy as np
+import time
+from tqdm import trange
 from src.nuvPriors.nuvPriors_basic import boxCostPositivity
 from src.nuvPriors.oneHot import oneHot
 from src.models.pwcModel import PWCModel
@@ -123,8 +125,8 @@ class ModelSelector():
     def estimate_selectedModel(
             self, y: np.ndarray, x_perModel: np.ndarray, n_it_irls: int=100, 
             beta_l: float=5.0, beta_h: float=5.0, beta_u: float=None, 
-            priorType_oneHot: str='repulsive_logCost', diff_convTh: float=1e-3
-            ) -> tuple[np.ndarray, int]:
+            priorType_oneHot: str='repulsive_logCost', diff_convTh: float=1e-3, 
+            disable_progressBar: bool=False) -> tuple[np.ndarray, int]:
         """
         Estimates S and U by IRLS with maximum n_it_irls iterations (or until 
         converged). The results are saved in S and U hat. Convergence is 
@@ -148,12 +150,15 @@ class ModelSelector():
                 cases are ['sparse', 'repulsive_logCost', 'repulsive_laplace', 
                 'discrete']. 
             diff_convTh (float): Threshold for convergence.
+            disable_progressBar (bool): If False, the progress bar is shown. 
+                If True, no progress bar is shown. Default is False.
             
         Returns:
             diffAZOSol (np.ndarray): Array containing averaged difference from 
                 all-{0,1} solution.
             i_it (int): Index of last iteration in IRLS, starting at 0. 
                 Therefore, the number of performed iterations is i_it + 1.
+            conv_time (float): Time for convergence (in seconds).
         """
         
         # Check dimensions of inputs
@@ -171,6 +176,9 @@ class ModelSelector():
             f'priorType={priorType_oneHot} is unknown! Valid prior types ' + \
             f'are {valid_priorType}'
         
+        # Start timer
+        start_time = time.time()
+        
         diffAZOSol = np.empty(n_it_irls, dtype=float)
         
         # If no beta_u is given, set it to M (i.e., use plain NUV)
@@ -181,7 +189,7 @@ class ModelSelector():
         # node. These stay the same for all iterations of IRLS.
         Ws_b = self.multiplicationNode_b(y=y, x_perModel=x_perModel)
         
-        for i_it in range(n_it_irls):
+        for i_it in trange(n_it_irls, disable=disable_progressBar):
             
             # Get messages out of constraint nodes
             xil_b, Wl_b = self.positivity_b(beta=beta_l)
@@ -205,8 +213,12 @@ class ModelSelector():
             # all-{0,1} solution)
             if diffAZOSol[i_it] < diff_convTh:
                 break
+            
+        # Stop timer and calculate time needed for convergence
+        stop_time = time.time()
+        conv_time = stop_time - start_time
         
-        return diffAZOSol, i_it
+        return diffAZOSol, i_it, conv_time
 
     def multiplicationNode_b(
             self, y: np.ndarray, x_perModel: np.ndarray) -> np.ndarray:

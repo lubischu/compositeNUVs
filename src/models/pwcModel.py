@@ -3,6 +3,8 @@ Specifies a model to fit Piece-Wise Constant (PWC) data.
 """
 
 import numpy as np
+import time
+from tqdm import trange
 from src.nuvPriors.nuvPriors_basic import logCost
 
 num_zero = 1e-100   # To account for some numerical instabilities
@@ -125,8 +127,8 @@ class PWCModel():
             
     def estimate_output(
             self, mxix_b: np.ndarray, VWx_b: np.ndarray, n_it_irls: int=1000, 
-            beta_u: float=None, met_convTh: float=1e-4
-            ) -> tuple[np.ndarray, int]:
+            beta_u: float=None, met_convTh: float=1e-4, 
+            disable_progressBar: bool=False) -> tuple[np.ndarray, int]:
         """
         Estimates X and U by IRLS with maximum n_it_irls iterations (or until 
         converged). The results are saved in X and U hat. Convergence is 
@@ -150,12 +152,15 @@ class PWCModel():
                 than zero. If None (default), it will be chosen equal to D 
                 (i.e., plain NUV).
             met_convTh (float): Threshold for convergence.
+            disable_progressBar (bool): If False, the progress bar is shown. 
+                If True, no progress bar is shown. Default is False.
             
         Returns:
             changes (np.ndarray): Array containing relative changes per 
                 iteration of IRLS.
             i_it (int): Index of last iteration in IRLS, starting at 0. 
                 Therefore, the number of performed iterations is i_it + 1.
+            conv_time (float): Time for convergence (in seconds).
         """
         
         # Check dimensions of inputs
@@ -163,6 +168,9 @@ class PWCModel():
             f'mxix_b must be of .shape=(N,D)!'
         assert VWx_b.shape==(self.N,self.D,self.D), \
             f'VWx_b must be of .shape=(N,D,D)!'
+        
+        # Start timer
+        start_time = time.time()
         
         if beta_u is None:
             beta_u = self.D
@@ -172,7 +180,7 @@ class PWCModel():
         changes = np.empty(n_it_irls, dtype=float)
         
         # Perform IRLS
-        for i_it in range(n_it_irls):
+        for i_it in trange(n_it_irls, disable=disable_progressBar):
             
             # Check for message passing mode, calculate posterior estimates 
             # accordingly
@@ -191,8 +199,12 @@ class PWCModel():
             # Check if IRLS has converged (i.e., if change is below threshold)
             if changes[i_it] < met_convTh:
                 break
+            
+        # Stop timer and calculate time needed for convergence
+        stop_time = time.time()
+        conv_time = stop_time - start_time
         
-        return changes, i_it
+        return changes, i_it, conv_time
                         
     def sparseInputs_f(self, beta_u: float, inverse: bool=False) -> np.ndarray:
         """

@@ -3,6 +3,8 @@ Specifies a model to fit data to M different levels, where the levels are
 either specified or estimated.
 """
 
+import dis
+from gc import disable
 import numpy as np
 import pandas as pd
 import time
@@ -164,9 +166,10 @@ class CLFModel():
             
             # Improve model selection for current estimates of levels
             x_perModel = np.tile(self.ml_hat, (self.N,1,1))
-            diffAZOSol, i_it_s = self.modelSelector.estimate_selectedModel(
+            diffAZOSol, i_it_s, _ = self.modelSelector.estimate_selectedModel(
                 y=y, x_perModel=x_perModel, n_it_irls=n_it_irls_s, 
-                beta_l=beta_l_s, beta_h=beta_h_s, beta_u=beta_u_s)
+                beta_l=beta_l_s, beta_h=beta_h_s, beta_u=beta_u_s, 
+                disable_progressBar=True)
             
             # Improve level estimation
             ml_hat_old = self.ml_hat.copy()   # .shape=(M,D)

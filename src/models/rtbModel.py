@@ -128,22 +128,23 @@ class RTBModel():
                 Wx_b @ np.reshape(y, (self.N,self.D,1)), (self.N,self.D))
     
             # Estimate outputs of piecewise-constant model
-            change_x, i_it_x = self.pwcModel.estimate_output(
+            change_x, i_it_x, _ = self.pwcModel.estimate_output(
                 n_it_irls=n_it_irls_x, mxix_b=xix_b, VWx_b=Wx_b, 
-                beta_u=beta_u_x, met_convTh=met_convTh)
+                beta_u=beta_u_x, met_convTh=met_convTh, 
+                disable_progressBar=True)
             change_x_min = np.min(change_x[:i_it_x+1])
     
             # Construct estimated outputs per model
             x_m0 = self.constLevel
-            x_m1 = self.pwcModel.mx_hat
+            x_m1, _ = self.get_xHat()
             x_perModel = np.concatenate(
                 (x_m0[:,np.newaxis,:], x_m1[:,np.newaxis,:]), axis=1)
             
             # Estimate model selection
-            diffAZOSol_s, i_it_s = self.modelSelector.estimate_selectedModel(
+            diffAZOSol_s, i_it_s, _ = self.modelSelector.estimate_selectedModel(
                 n_it_irls=n_it_irls_s, y=y, x_perModel=x_perModel, 
                 beta_l=beta_l_s, beta_h=beta_h_s, beta_u=beta_u_s, 
-                diff_convTh=diff_convTh)
+                diff_convTh=diff_convTh, disable_progressBar=True)
             diffAZOSol_min = np.min(diffAZOSol_s[:i_it_s+1])
         
             # Save preformance metrics
