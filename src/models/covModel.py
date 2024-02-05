@@ -189,6 +189,34 @@ class COVModel():
         noiseCov_hat = A @ np.transpose(A, (0,2,1))
         
         return noiseCov_hat
+    
+    def calculate_noisePrec(self, inverse: bool=False):
+        """
+        Calculates the corresponding estimated noise precision matrices for 
+        the current estimates of J.
+        
+        Returns:
+            noiseprec_hat (np.ndarray): Corresponding estimated noise 
+                precision matrices.
+                    .shape=(N,D,D)
+        """
+        
+        # Get current estimates of J
+        mj_hat, _ = self.get_jHat()
+    
+        # Construct A^{-1} from J
+        A_inv = np.zeros((self.N,self.D,self.D), dtype=float)
+        ind_start = 0
+        for d in range(self.D):
+            A_inv += np.array([
+                np.diag(mj_hat_i[ind_start:ind_start+self.D-d], k=d) 
+                for mj_hat_i in mj_hat])
+            ind_start += self.D-d
+        
+        # Calculate precision matrices from A^-1
+        noisePrec_hat = np.transpose(A_inv, (0,2,1)) @ A_inv
+        
+        return noisePrec_hat
             
 
 class ConstModel():
