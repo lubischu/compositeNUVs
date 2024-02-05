@@ -190,7 +190,7 @@ class COVModel():
         
         return noiseCov_hat
     
-    def calculate_noisePrec(self, inverse: bool=False):
+    def calculate_noisePrec(self):
         """
         Calculates the corresponding estimated noise precision matrices for 
         the current estimates of J.
