@@ -78,7 +78,7 @@ class ConstModel():
         self.Wx_prior = np.linalg.inv(Vx_prior)
         self.xix_prior = self.Wx_prior @ mx_prior
             
-    def estimate_output(self, mxix_b: np.ndarray, VWx_b: np.ndarray) -> None:
+    def estimate_output(self, mxix_b: np.ndarray, VWx_b: np.ndarray) -> float:
         """
         Calculate MAP estimates of mean and covariance matrices of X.
         
@@ -89,6 +89,9 @@ class ConstModel():
             VWx_b (np.ndarray): Either interpreted as ingoing covariance or 
                 precision messages, depending on mode.
                     .shape=(N,D,D)
+
+        Returns:
+            change (float): Relative change.
         """
         
         # Check dimensions of inputs
@@ -117,7 +120,13 @@ class ConstModel():
         mx_hat_one = np.reshape(
             Vx_hat_one @ np.reshape(xix_hat, (self.D,1)), self.D)
         
+        # Calculate relative change of mean estimate
+        change = np.mean(
+            np.abs(mx_hat_one-self.mx_hat[0]) / np.abs(mx_hat_one))
+        
         # Repeat estimate to every time index (done to match format of other 
         # estimators)
         self.Vx_hat = np.tile(Vx_hat_one, (self.N,1,1))
         self.mx_hat = np.tile(mx_hat_one, (self.N,1))
+
+        return change

@@ -36,8 +36,8 @@ class CovModel():
         
         # Check if selected evolution type is known
         valid_evolType = ['pwc', 'constant']
-        assert evolType in valid_evolType, f'Unknown evolType! Must be in ' + \
-            f'{valid_evolType}.'
+        assert evolType in valid_evolType, \
+            f'Unknown evolType! Must be in {valid_evolType}.'
         
         # Calculate the dimension of J
         fD = int(D*(D+1)/2)
@@ -65,9 +65,9 @@ class CovModel():
                 N=N, D=fD, mode='dual', mx_init=mj_init, Vx_init=Vj_init)
             
     def estimate_VICF(
-            self, z_hat: np.ndarray, n_it_irls: int=1000, beta_l: float=5.0, 
-            met_convTh: float=1e-4, beta_u: float=None, 
-            disable_progressBar: bool=False) -> tuple[np.ndarray, int]:
+            self, z_hat: np.ndarray, n_it_irls: int=1000, beta_u: float=None, 
+            beta_l: float=5.0, met_convTh: float=1e-4, 
+            disable_progressBar: bool=False) -> tuple[np.ndarray, int, float]:
         """
         Estimates the Vectorised Inverse Cholesky Factor (VICF), denoted by J. 
         In other words, J_i specifies A_i, where A_i is a Cholesky factor from 
@@ -78,14 +78,13 @@ class CovModel():
                 normally distributed with zero mean.
                     .shape=(N,D)
             n_it_irls (int): Maximum number of iterations for IRLS.
-            beta_l (float): Tuning parameter for positivity constraint, must 
-                be non-negative. Should be chosen chosen 'large enough', in 
-                the sense that the diagonal elements of Vs_hat should always 
-                be positive. 
             beta_u (float): Tuning parameter for sparsifying NUV in PWC model 
                 (only used when evolType == 'pwc'). Higher values correspond 
                 to a more aggressive prior. If None (default value), beta_u 
                 will be chosen equal to fD, wich corresponds to a plain NUV.
+            beta_l (float): Tuning parameter for positivity constraint, must 
+                be non-negative. Should be chosen 'large enough', in the sense 
+                that the diagonal elements of Vs_hat should always be positive. 
             met_convTh (float): Threshold for convergence.
             disable_progressBar (bool): If False, the progress bar is shown. 
                 If True, no progress bar is shown. Default is False.
@@ -153,7 +152,7 @@ class CovModel():
         Returns:
             mj_hat (np.ndarray): Current mean estimates of J.
                     .shape=(N,2)
-            Vj_hat (np.ndarray): Current covariance matrix estimates of S.
+            Vj_hat (np.ndarray): Current covariance matrix estimates of J.
                     .shape(N,2,2)
         """
         

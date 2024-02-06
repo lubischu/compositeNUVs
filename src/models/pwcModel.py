@@ -35,7 +35,7 @@ class PWCModel():
                 respective representation (i.e., mean and covariance for 
                 'conventional' or dual mean and precision for 'dual').
             mx_init (np.ndarray): Initial values of mx_hat. If None, mx_hat is 
-                initialized randomly, to zero.
+                initialized randomly, close to zero.
                     .shape=(N,D)
             Vx_init (np.ndarray): Initial values of Vx_hat. If None, Vx_hat is 
                 initialized to identity matrices.
@@ -47,7 +47,7 @@ class PWCModel():
                 Vx_prior is initialized to identity matrix, scaled by 1e3.
                     .shape=(D,D)
             mu_init (np.ndarray): Initial values of mu_hat. If None, mu_hat is 
-                initialized to zero.
+                initialized randomly, close to zero.
                     .shape=(N-1,D)
             Vu_init (np.ndarray): Initial values of Vu_hat. If None, Vu_hat is 
                 initialized to identity matrices.
@@ -128,7 +128,7 @@ class PWCModel():
     def estimate_output(
             self, mxix_b: np.ndarray, VWx_b: np.ndarray, n_it_irls: int=1000, 
             beta_u: float=None, met_convTh: float=1e-4, 
-            disable_progressBar: bool=False) -> tuple[np.ndarray, int]:
+            disable_progressBar: bool=False) -> tuple[np.ndarray, int, float]:
         """
         Estimates X and U by IRLS with maximum n_it_irls iterations (or until 
         converged). The results are saved in X and U hat. Convergence is 

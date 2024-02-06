@@ -126,7 +126,7 @@ class ModelSelector():
             self, y: np.ndarray, x_perModel: np.ndarray, n_it_irls: int=100, 
             beta_l: float=5.0, beta_h: float=5.0, beta_u: float=None, 
             priorType_oneHot: str='repulsive_logCost', diff_convTh: float=1e-3, 
-            disable_progressBar: bool=False) -> tuple[np.ndarray, int]:
+            disable_progressBar: bool=False) -> tuple[np.ndarray, int, float]:
         """
         Estimates S and U by IRLS with maximum n_it_irls iterations (or until 
         converged). The results are saved in S and U hat. Convergence is 
