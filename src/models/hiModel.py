@@ -116,7 +116,8 @@ class HiModel():
         # evolution model of mean is PWC!
         if self.evolType_mean=='pwc':
             mx_init = np.tile(np.mean(y, axis=0), (self.N,1))
-            Vx_init = np.tile(np.identity(self.D, dtype=float)*1e3, (self.N,1,1))
+            Vx_init = np.tile(
+                np.identity(self.D, dtype=float)*1e3, (self.N,1,1))
             self.evolModel_mean.init_x(mx_init=mx_init, Vx_init=Vx_init)
     
         # Pandas DataFrame to save performance metrics
