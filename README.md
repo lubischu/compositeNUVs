@@ -5,6 +5,8 @@
    
   ```bash
   git clone https://github.com/lubischu/compositeNUVs.git
+  ```
+
 2. Optionally, create and activate a virtual environment with specified requirements.
 
   ```bash
