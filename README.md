@@ -15,7 +15,7 @@ This repository contains code to perform various model-based signal processing t
    ```bash
    python -m venv cnenv
    source cnenv/bin/activate
-   pip install -r requirements.txt
+   pip install -e .
    ```
 
    For Windows:
@@ -23,5 +23,5 @@ This repository contains code to perform various model-based signal processing t
    ```bash
    python -m venv cnenv
    cnenv\bin\activate
-   pip install -r requirements.txt
+   pip install -e .
    ```
