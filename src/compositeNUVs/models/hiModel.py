@@ -3,14 +3,15 @@ Specifies a model to estimate both, mean and covariance matrices of applied
 data in a hierarchical fashion.
 """
 
-from gc import disable
+import time
+
 import numpy as np
 import pandas as pd
 from tqdm import trange
-import time
-from src.models.constModel import ConstModel
-from src.models.pwcModel import PWCModel
-from src.models.covModel import CovModel
+
+from .constModel import ConstModel
+from .covModel import CovModel
+from .pwcModel import PWCModel
 
 
 class HiModel():

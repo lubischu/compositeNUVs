@@ -2,10 +2,12 @@
 Specifies a model to fit Piece-Wise Constant (PWC) data.
 """
 
-import numpy as np
 import time
+
+import numpy as np
 from tqdm import trange
-from src.nuvPriors.nuvPriors_basic import logCost
+
+from ..nuvPriors.nuvPriors_basic import logCost
 
 num_zero = 1e-100   # To account for some numerical instabilities
 

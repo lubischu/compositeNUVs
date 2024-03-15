@@ -3,12 +3,15 @@ Specifies a model selector that can be used to fit observations to different
 models.
 """
 
-import numpy as np
 import time
+
+import numpy as np
 from tqdm import trange
-from src.nuvPriors.nuvPriors_basic import boxCostPositivity
-from src.nuvPriors.oneHot import oneHot
-from src.models.pwcModel import PWCModel
+
+from ..nuvPriors.nuvPriors_basic import boxCostPositivity
+from ..nuvPriors.oneHot import oneHot
+from .pwcModel import PWCModel
+
 
 class ModelSelector():
     """

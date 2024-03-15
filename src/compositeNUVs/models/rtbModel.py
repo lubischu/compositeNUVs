@@ -3,13 +3,15 @@ Specifies a model to fit piecewise constant data with a preference to a
 specified base level. Therefore the name Return-To-Base (RTB) model.
 """
 
+import time
+
 import numpy as np
 import pandas as pd
-import time
 from tqdm import trange
 
-from src.models.pwcModel import PWCModel
-from src.models.modelSelector import ModelSelector
+from .modelSelector import ModelSelector
+from .pwcModel import PWCModel
+
 
 class RTBModel():
     """
