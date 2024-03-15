@@ -3,15 +3,15 @@ Specifies a model to fit data to M different levels, where the levels are
 either specified or estimated.
 """
 
-import dis
-from gc import disable
-import numpy as np
-import pandas as pd
 import time
-from tqdm import trange
 import warnings
 
-from src.models.modelSelector import ModelSelector
+import numpy as np
+import pandas as pd
+from tqdm import trange
+
+from .modelSelector import ModelSelector
+
 
 class CLFModel():
     """

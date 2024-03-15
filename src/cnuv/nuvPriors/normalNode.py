@@ -2,8 +2,10 @@
 Specifies function to calculate messages passes through normal nodes.
 """
 
-import numpy as np
 import warnings
+
+import numpy as np
+
 
 def normalNode(
         z: np.ndarray, ms_hat: np.ndarray, beta_l: float, inverse: bool=True

@@ -3,14 +3,14 @@ Specifies a model to estimate the (potentially evolving) covariance matrices
 of applied zero-mean Gaussian noise. 
 """
 
-import numpy as np
-import pandas as pd
 import time
+
+import numpy as np
 from tqdm import trange
 
-from src.nuvPriors.normalNode import normalNode
-from src.models.constModel import ConstModel
-from src.models.pwcModel import PWCModel
+from ..nuvPriors.normalNode import normalNode
+from .constModel import ConstModel
+from .pwcModel import PWCModel
 
 
 class CovModel():

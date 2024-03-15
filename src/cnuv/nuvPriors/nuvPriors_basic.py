@@ -7,7 +7,7 @@ which these priors are applied is called X.
 """
 
 import numpy as np
-import warnings
+
 
 def laplace(
         mx_hat: np.ndarray, beta: float, inverse: bool=False) -> np.ndarray:
