@@ -22,6 +22,6 @@ This repository contains code to perform various model-based signal processing t
    
    ```bash
    python -m venv cnenv
-   cnenv\bin\activate
+   cnenv\Scripts\activate
    pip install -e .
    ```
