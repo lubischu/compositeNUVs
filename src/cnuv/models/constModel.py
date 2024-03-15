@@ -3,7 +3,7 @@ Specifies a model to fit constant data.
 """    
 
 import numpy as np
-import pandas as pd
+
 
 class ConstModel():
     """
